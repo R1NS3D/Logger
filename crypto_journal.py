@@ -8,8 +8,8 @@ from io import BytesIO
 
 # Page configuration
 st.set_page_config(
-    page_title="Crypto Logging Journal",
-    page_icon="📊",
+    page_title="Lumberjack",
+    page_icon="🪵",
     layout="wide",
     initial_sidebar_state="expanded"
 )
@@ -634,9 +634,9 @@ def main():
     col1, col2 = st.columns([6, 1])
     
     with col1:
-        st.title("📊 Crypto Logging Journal")
+        st.title("🪵 Logging Journal")
         st.markdown("""
-        Track and analyze potential cryptocurrency investments with this comprehensive logging tool. 
+        Track and analyze potential investments with this comprehensive logging tool. 
         Toggle fields on/off to customize your logging experience and focus on what matters most to you.
         **Your data is now saved client-side and will persist between sessions!**
         """)
@@ -884,7 +884,7 @@ def main():
     col1, col2 = st.columns([2, 1])
     
     with col1:
-        st.header("📋 New Log Entry")
+        st.header("📋 Add New Entry")
         
         # Check if any fields are selected
         if not any(selected_fields.values()):
@@ -903,40 +903,35 @@ def main():
                 if field_key in selected_fields and selected_fields[field_key]:
                     if field_key in FIELD_CONFIGS:
                         config = FIELD_CONFIGS[field_key]
-                        value = create_input_widget(field_key, config)
-                        entry_data[field_key] = value
+                        entry_data[field_key] = create_input_widget(field_key, config)
             
             # Add custom fields in custom order (only if selected)
             for field_key in st.session_state.field_order['custom']:
                 if field_key in selected_fields and selected_fields[field_key]:
                     if field_key in st.session_state.custom_fields:
                         config = st.session_state.custom_fields[field_key]
-                        value = create_input_widget(field_key, config)
-                        entry_data[field_key] = value
+                        entry_data[field_key] = create_input_widget(field_key, config)
             
             # Submit button
-            submitted = st.form_submit_button("📝 Log Entry", type="primary")
-            
-            if submitted:
-                # Validate that at least coin symbol is provided
-                if 'coin_symbol' in entry_data and entry_data['coin_symbol'].strip():
-                    # Add timestamp for sorting
-                    entry_data['timestamp'] = datetime.now().isoformat()
+            if st.form_submit_button("📝 Add Entry"):
+                # Validate required fields
+                if not entry_data.get('coin_symbol'):
+                    st.error("❌ Coin symbol is required!")
+                else:
+                    # Add timestamp
+                    entry_data['timestamp'] = datetime.now()
                     
-                    # Add to session state
+                    # Add to log entries
                     st.session_state.log_entries.append(entry_data)
                     
-                    # Save data immediately
+                    # Save data
                     save_client_data()
                     
-                    st.success(f"✅ Logged entry for {entry_data['coin_symbol']} (Saved automatically)")
+                    # Success message
+                    st.success(f"✅ Added {entry_data.get('coin_symbol', 'Unknown')} to your journal!")
                     
-                    # Clear form inputs
-                    for field_key in selected_fields.keys():
-                        if f"input_{field_key}" in st.session_state:
-                            del st.session_state[f"input_{field_key}"]
-                else:
-                    st.error("❌ Coin Symbol/Name is required!")
+                    # Clear form by rerunning
+                    st.rerun()
     
     with col2:
         st.header("📊 Quick Stats")
@@ -1007,6 +1002,10 @@ def main():
                         st.rerun()
         else:
             st.info("No entries logged yet. Start by creating your first entry!")
+    
+    with col2:
+        st.header("📝 Quick Actions")
+        st.markdown("Use the sidebar to manage your fields and data.")
     
     # Display logged entries
     if st.session_state.log_entries:
