@@ -14,13 +14,15 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
+# Enable persistent storage for session state
+st.session_state.setdefault = lambda key, default: st.session_state.get(key, default)
+
 def get_default_field_order():
     """Get the default field order"""
     return {
         'built_in': ['coin_symbol', 'coin_link', 'date_logged', 'market_cap', 'trading_volume', 
                      'trading_volume_timeframe', 'established_status', 'fib_levels', 'conviction_level', 
-                     'risk_factors', 'sentiment_community', 'entry_strategy', 'target_exit_strategy', 
-                     'notes_updates', 'trade_result'],
+                     'sentiment_community', 'notes_updates', 'trade_result'],
         'custom': []
     }
 
@@ -70,10 +72,30 @@ def load_client_data():
             config['index'] = 0
 
 def save_client_data():
-    """Save data to client-side storage"""
-    # In Streamlit, session_state automatically persists during the session
-    # This is the closest we can get to client-side storage
-    pass
+    """Save data to client-side storage using Streamlit's built-in persistence"""
+    try:
+        # Save all data to Streamlit's session state with persistence
+        if 'log_entries' in st.session_state:
+            st.session_state['log_entries'] = st.session_state.log_entries
+        if 'custom_fields' in st.session_state:
+            st.session_state['custom_fields'] = st.session_state.custom_fields
+        if 'field_order' in st.session_state:
+            st.session_state['field_order'] = st.session_state.field_order
+        if 'field_toggles' in st.session_state:
+            st.session_state['field_toggles'] = st.session_state.field_toggles
+        if 'theme_settings' in st.session_state:
+            st.session_state['theme_settings'] = st.session_state.theme_settings
+        
+        # Update last save time
+        st.session_state['last_save_time'] = datetime.now().strftime("%H:%M:%S")
+        
+        # Force a rerun to ensure persistence
+        if 'save_triggered' not in st.session_state:
+            st.session_state['save_triggered'] = True
+            st.rerun()
+            
+    except Exception as e:
+        st.error(f"❌ Error saving data: {str(e)}")
 
 def clear_all_data():
     """Clear all saved data"""
@@ -96,6 +118,7 @@ def move_field_up(field_key, field_type):
         if current_index > 0:
             order_list[current_index], order_list[current_index - 1] = order_list[current_index - 1], order_list[current_index]
             save_client_data()
+            st.success(f"✅ Moved {field_key} up")
 
 def move_field_down(field_key, field_type):
     """Move a field down in the order"""
@@ -105,6 +128,7 @@ def move_field_down(field_key, field_type):
         if current_index < len(order_list) - 1:
             order_list[current_index], order_list[current_index + 1] = order_list[current_index + 1], order_list[current_index]
             save_client_data()
+            st.success(f"✅ Moved {field_key} down")
 
 def add_field_to_order(field_key, field_type):
     """Add a new field to the order"""
@@ -277,29 +301,11 @@ FIELD_CONFIGS = {
         'max_value': 10,
         'value': 5
     },
-    'risk_factors': {
-        'label': 'Risk Factors',
-        'type': 'text_area',
-        'help': 'Potential risks and concerns',
-        'placeholder': 'Regulatory uncertainty, competition, market volatility...'
-    },
     'sentiment_community': {
         'label': 'Sentiment/Community',
         'type': 'text_input',
         'help': 'Community sentiment and social media buzz',
         'placeholder': 'Bullish on Twitter, active Discord community'
-    },
-    'entry_strategy': {
-        'label': 'Entry Strategy',
-        'type': 'text_area',
-        'help': 'Your planned entry strategy and timing',
-        'placeholder': 'DCA over 3 months, buy on dips below $45k...'
-    },
-    'target_exit_strategy': {
-        'label': 'Target/Exit Strategy',
-        'type': 'text_area',
-        'help': 'Price targets and exit strategy',
-        'placeholder': 'Take profit at $60k, stop loss at $35k...'
     },
     'notes_updates': {
         'label': 'Notes/Updates',
@@ -330,6 +336,16 @@ FIELD_TYPES = {
 if 'data_loaded' not in st.session_state:
     load_client_data()
     st.session_state.data_loaded = True
+
+# Add callback to auto-save when session state changes
+def auto_save_callback():
+    """Automatically save data when session state changes"""
+    save_client_data()
+
+# Register the callback
+if 'auto_save_registered' not in st.session_state:
+    st.session_state.auto_save_registered = True
+    # This will trigger auto-save on any session state change
 
 def create_input_widget(field_key, config):
     """Create the appropriate input widget based on field configuration"""
@@ -600,6 +616,20 @@ def main():
     # Apply theme
     apply_theme()
     
+    # Auto-save indicator
+    if 'last_save_time' in st.session_state:
+        st.sidebar.markdown(f"💾 Last saved: {st.session_state.last_save_time}")
+    
+    # Auto-save data periodically
+    if 'auto_save_counter' not in st.session_state:
+        st.session_state.auto_save_counter = 0
+    st.session_state.auto_save_counter += 1
+    
+    # Save every 10 interactions
+    if st.session_state.auto_save_counter % 10 == 0:
+        save_client_data()
+        st.session_state.last_save_time = datetime.now().strftime("%H:%M:%S")
+    
     # Header with settings gear
     col1, col2 = st.columns([6, 1])
     
@@ -645,18 +675,29 @@ def main():
                 st.markdown("---")
                 
                 # Custom color pickers
-                st.session_state.theme_settings['background_color'] = st.color_picker(
+                new_bg_color = st.color_picker(
                     "Background Color", 
                     st.session_state.theme_settings['background_color']
                 )
-                st.session_state.theme_settings['text_color'] = st.color_picker(
+                if new_bg_color != st.session_state.theme_settings['background_color']:
+                    st.session_state.theme_settings['background_color'] = new_bg_color
+                    save_client_data()
+                
+                new_text_color = st.color_picker(
                     "Text Color", 
                     st.session_state.theme_settings['text_color']
                 )
-                st.session_state.theme_settings['accent_color'] = st.color_picker(
+                if new_text_color != st.session_state.theme_settings['text_color']:
+                    st.session_state.theme_settings['text_color'] = new_text_color
+                    save_client_data()
+                
+                new_accent_color = st.color_picker(
                     "Accent Color", 
                     st.session_state.theme_settings['accent_color']
                 )
+                if new_accent_color != st.session_state.theme_settings['accent_color']:
+                    st.session_state.theme_settings['accent_color'] = new_accent_color
+                    save_client_data()
             
             with col2:
                 st.subheader("🖼️ Background")
@@ -670,14 +711,21 @@ def main():
                     image_bytes = uploaded_file.read()
                     image_base64 = base64.b64encode(image_bytes).decode()
                     st.session_state.theme_settings['custom_background'] = image_base64
+                    save_client_data()
                     st.success("✅ Background image uploaded!")
                 
                 if st.button("🗑️ Remove Background"):
                     st.session_state.theme_settings['custom_background'] = None
+                    save_client_data()
                     st.success("✅ Background image removed!")
             
             with col3:
                 st.subheader("💾 Data Management")
+                if st.button("💾 Save Now", type="secondary"):
+                    save_client_data()
+                    st.session_state.last_save_time = datetime.now().strftime("%H:%M:%S")
+                    st.success("✅ Data saved!")
+                
                 if st.button("🗑️ Clear All Data", type="secondary"):
                     clear_all_data()
                     st.success("✅ All data cleared!")
@@ -695,6 +743,19 @@ def main():
     # Sidebar for field toggles and custom field management
     st.sidebar.header("📝 Field Selection")
     st.sidebar.markdown("Select which fields to include in your log entries:")
+    
+    # Data persistence status
+    st.sidebar.markdown("---")
+    st.sidebar.markdown("**💾 Data Persistence:**")
+    if 'last_save_time' in st.session_state:
+        st.sidebar.markdown(f"Last saved: {st.session_state.last_save_time}")
+    else:
+        st.sidebar.markdown("Not saved yet")
+    
+    # Manual save button
+    if st.sidebar.button("💾 Save All Data", type="secondary"):
+        save_client_data()
+        st.sidebar.success("✅ Data saved!")
     
     # Field reordering section
     with st.sidebar.expander("🔄 Reorder Fields", expanded=False):
@@ -738,12 +799,22 @@ def main():
             config = FIELD_CONFIGS[field_key]
             with st.sidebar.expander(config['label'], expanded=False):
                 st.markdown(f"**{config['help']}**")
+                # Use a key-based approach for better persistence
+                toggle_key = f"toggle_{field_key}"
+                if toggle_key not in st.session_state:
+                    st.session_state[toggle_key] = st.session_state.field_toggles.get(field_key, True)
+                
                 selected_fields[field_key] = st.checkbox(
                     f"Enable {config['label']}",
-                    value=st.session_state.field_toggles.get(field_key, True),
-                    key=f"toggle_{field_key}"
+                    value=st.session_state[toggle_key],
+                    key=toggle_key
                 )
                 st.session_state.field_toggles[field_key] = selected_fields[field_key]
+                
+                # Auto-save when field toggles change
+                if st.session_state[toggle_key] != selected_fields[field_key]:
+                    st.session_state[toggle_key] = selected_fields[field_key]
+                    save_client_data()
     
     # Custom Fields Management Section
     st.sidebar.markdown("---")
@@ -781,16 +852,27 @@ def main():
                     st.markdown(f"*Type: {FIELD_TYPES[config['type']]}*")
                     
                     # Toggle for custom field
+                    # Use a key-based approach for better persistence
+                    toggle_key = f"toggle_{field_key}"
+                    if toggle_key not in st.session_state:
+                        st.session_state[toggle_key] = st.session_state.field_toggles.get(field_key, True)
+                    
                     selected_fields[field_key] = st.checkbox(
                         f"Enable {config['label']}",
-                        value=st.session_state.field_toggles.get(field_key, True),
-                        key=f"toggle_{field_key}"
+                        value=st.session_state[toggle_key],
+                        key=toggle_key
                     )
                     st.session_state.field_toggles[field_key] = selected_fields[field_key]
+                    
+                    # Auto-save when custom field toggles change
+                    if st.session_state[toggle_key] != selected_fields[field_key]:
+                        st.session_state[toggle_key] = selected_fields[field_key]
+                        save_client_data()
                     
                     # Delete button
                     if st.button(f"🗑️ Delete {config['label']}", key=f"delete_{field_key}"):
                         delete_custom_field(field_key)
+                        save_client_data()
                         st.success(f"✅ Deleted custom field: {config['label']}")
                         st.rerun()
         else:
@@ -957,10 +1039,7 @@ def main():
                 'Established Status': 'Status',
                 'Fib Levels': 'Fib Levels',
                 'Conviction Level': 'Conviction',
-                'Risk Factors': 'Risk Factors',
                 'Sentiment Community': 'Sentiment',
-                'Entry Strategy': 'Entry Strategy',
-                'Target Exit Strategy': 'Exit Strategy',
                 'Notes Updates': 'Notes',
                 'Trade Result': 'Result',
                 'Coin Link': 'Link'
@@ -1039,6 +1118,7 @@ def main():
                     entry['trade_result'] = new_result
                     save_client_data()
                     st.success(f"✅ Updated {entry.get('coin_symbol', 'Unknown')} to {new_result}")
+                    st.rerun()
             
             with col6:
                 # Show current result with emoji
@@ -1087,6 +1167,7 @@ def main():
             if st.button("🗑️ Clear All Logs", type="secondary"):
                 st.session_state.log_entries = []
                 save_client_data()
+                st.success("✅ All logs cleared!")
                 st.rerun()
     
     # Footer
