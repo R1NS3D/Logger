@@ -990,7 +990,7 @@ def main():
         # Create a custom table with editable dropdowns
         for i, entry in enumerate(st.session_state.log_entries):
             # Create columns for the table row
-            col1, col2, col3, col4, col5, col6, col7, col8 = st.columns([2, 1.5, 1.5, 1.5, 2, 1.5, 1.5, 1])
+            col1, col2, col3, col4, col5, col6, col7 = st.columns([2, 1.5, 1.5, 1.5, 2, 1.5, 1])
             
             with col1:
                 # Coin symbol (clickable if link exists)
@@ -1051,21 +1051,6 @@ def main():
                     st.write('⏳ Pending')
             
             with col7:
-                # Trade result dropdown next to delete button
-                st.write("Result:")
-                inline_result = st.selectbox(
-                    "Result",
-                    options=['Pending', 'Win', 'Loss'],
-                    index=['Pending', 'Win', 'Loss'].index(entry.get('trade_result', 'Pending')),
-                    key=f"inline_result_{i}",
-                    label_visibility="collapsed"
-                )
-                # Update the entry if result changed
-                if inline_result != entry.get('trade_result'):
-                    entry['trade_result'] = inline_result
-                    save_client_data()
-            
-            with col8:
                 # Delete button
                 if st.button(f"🗑️", key=f"delete_inline_{i}", help=f"Delete {entry.get('coin_symbol', 'Unknown')} entry"):
                     deleted_entry = st.session_state.log_entries.pop(i)
