@@ -6,6 +6,14 @@ import os
 import base64
 from io import BytesIO
 
+# Local persistence paths
+DATA_DIR = os.path.join(os.path.dirname(__file__), 'data')
+LOGS_FILE = os.path.join(DATA_DIR, 'crypto_logs.json')
+CUSTOM_FIELDS_FILE = os.path.join(DATA_DIR, 'custom_fields.json')
+FIELD_ORDER_FILE = os.path.join(DATA_DIR, 'field_order.json')
+FIELD_TOGGLES_FILE = os.path.join(DATA_DIR, 'field_toggles.json')
+THEME_FILE = os.path.join(DATA_DIR, 'theme_settings.json')
+
 # Page configuration
 st.set_page_config(
     page_title="Lumberjack",
@@ -43,57 +51,71 @@ if 'theme_settings' not in st.session_state:
         'custom_background': None
     }
 
+def _ensure_data_dir():
+    if not os.path.isdir(DATA_DIR):
+        os.makedirs(DATA_DIR, exist_ok=True)
+
+def _read_json(path, default):
+    try:
+        if os.path.isfile(path):
+            with open(path, 'r', encoding='utf-8') as f:
+                return json.load(f)
+    except Exception:
+        pass
+    return default
+
+def _write_json(path, data):
+    try:
+        with open(path, 'w', encoding='utf-8') as f:
+            json.dump(data, f, ensure_ascii=False, indent=2, default=str)
+    except Exception as e:
+        st.error(f"❌ Failed to write {os.path.basename(path)}: {e}")
+
 def load_client_data():
-    """Load data from client-side storage (localStorage equivalent in Streamlit)"""
-    # In Streamlit, we use session_state which persists during the session
-    # For true persistence, we'd need to implement a database or file system
-    # For now, we'll use session_state which is the best we can do in Streamlit
-    
-    # Load field toggles with defaults
+    """Load data from local JSON files into session_state and normalize configs."""
+    _ensure_data_dir()
+
+    # Load persisted data
+    st.session_state.log_entries = _read_json(LOGS_FILE, [])
+    st.session_state.custom_fields = _read_json(CUSTOM_FIELDS_FILE, {})
+    st.session_state.field_order = _read_json(FIELD_ORDER_FILE, get_default_field_order())
+    st.session_state.field_toggles = _read_json(FIELD_TOGGLES_FILE, {})
+    st.session_state.theme_settings = _read_json(THEME_FILE, {
+        'background_color': '#1a1a1a',
+        'text_color': '#ffffff',
+        'accent_color': '#00d4aa',
+        'custom_background': None
+    })
+
+    # Defaults for missing toggles
     for field_key in FIELD_CONFIGS.keys():
-        if field_key not in st.session_state.field_toggles:
-            st.session_state.field_toggles[field_key] = True
-    
-    # Load custom field toggles
+        st.session_state.field_toggles.setdefault(field_key, True)
     for field_key in st.session_state.custom_fields.keys():
-        if field_key not in st.session_state.field_toggles:
-            st.session_state.field_toggles[field_key] = True
-    
-    # Ensure all custom fields have proper configurations
+        st.session_state.field_toggles.setdefault(field_key, True)
+
+    # Normalize custom field configs
     for field_key, config in st.session_state.custom_fields.items():
         if 'type' not in config:
-            config['type'] = 'text_input'  # Default fallback
-        if config['type'] == 'slider' and 'min_value' not in config:
-            config['min_value'] = 0
-            config['max_value'] = 100
-            config['value'] = 50
-        elif config['type'] == 'selectbox' and 'options' not in config:
-            config['options'] = ['Option 1', 'Option 2', 'Option 3']
-            config['index'] = 0
+            config['type'] = 'text_input'
+        if config['type'] == 'slider':
+            config.setdefault('min_value', 0)
+            config.setdefault('max_value', 100)
+            config.setdefault('value', 50)
+        elif config['type'] == 'selectbox':
+            config.setdefault('options', ['Option 1', 'Option 2', 'Option 3'])
+            config.setdefault('index', 0)
 
 def save_client_data():
-    """Save data to client-side storage using Streamlit's built-in persistence"""
+    """Persist data to local JSON files and update sidebar save time."""
     try:
-        # Save all data to Streamlit's session state with persistence
-        if 'log_entries' in st.session_state:
-            st.session_state['log_entries'] = st.session_state.log_entries
-        if 'custom_fields' in st.session_state:
-            st.session_state['custom_fields'] = st.session_state.custom_fields
-        if 'field_order' in st.session_state:
-            st.session_state['field_order'] = st.session_state.field_order
-        if 'field_toggles' in st.session_state:
-            st.session_state['field_toggles'] = st.session_state.field_toggles
-        if 'theme_settings' in st.session_state:
-            st.session_state['theme_settings'] = st.session_state.theme_settings
-        
-        # Update last save time
+        _ensure_data_dir()
+        _write_json(LOGS_FILE, st.session_state.log_entries)
+        _write_json(CUSTOM_FIELDS_FILE, st.session_state.custom_fields)
+        _write_json(FIELD_ORDER_FILE, st.session_state.field_order)
+        _write_json(FIELD_TOGGLES_FILE, st.session_state.field_toggles)
+        _write_json(THEME_FILE, st.session_state.theme_settings)
+
         st.session_state['last_save_time'] = datetime.now().strftime("%H:%M:%S")
-        
-        # Force a rerun to ensure persistence
-        if 'save_triggered' not in st.session_state:
-            st.session_state['save_triggered'] = True
-            st.rerun()
-            
     except Exception as e:
         st.error(f"❌ Error saving data: {str(e)}")
 
@@ -934,7 +956,6 @@ def main():
                     st.rerun()
     
     with col2:
-        st.header("📊 Quick Stats")
         
         if st.session_state.log_entries:
             total_entries = len(st.session_state.log_entries)
@@ -1004,7 +1025,6 @@ def main():
             st.info("No entries logged yet. Start by creating your first entry!")
     
     with col2:
-        st.header("📝 Quick Actions")
         st.markdown("Use the sidebar to manage your fields and data.")
     
     # Display logged entries
