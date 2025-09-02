@@ -35,9 +35,9 @@ if 'field_toggles' not in st.session_state:
     st.session_state.field_toggles = {}
 if 'theme_settings' not in st.session_state:
     st.session_state.theme_settings = {
-        'background_color': '#ffffff',
-        'text_color': '#000000',
-        'accent_color': '#1f77b4',
+        'background_color': '#1a1a1a',
+        'text_color': '#ffffff',
+        'accent_color': '#00d4aa',
         'custom_background': None
     }
 
@@ -82,9 +82,9 @@ def clear_all_data():
     st.session_state.field_order = get_default_field_order()
     st.session_state.field_toggles = {}
     st.session_state.theme_settings = {
-        'background_color': '#ffffff',
-        'text_color': '#000000',
-        'accent_color': '#1f77b4',
+        'background_color': '#1a1a1a',
+        'text_color': '#ffffff',
+        'accent_color': '#00d4aa',
         'custom_background': None
     }
 
@@ -470,20 +470,128 @@ def apply_theme():
         </style>
         """, unsafe_allow_html=True)
     
-    # Apply color theme
+    # Apply color theme with enhanced dark mode styling
     st.markdown(f"""
     <style>
     .stApp {{
         background-color: {theme['background_color']} !important;
         color: {theme['text_color']} !important;
     }}
+    
+    /* Main content area */
+    .main .block-container {{
+        background-color: {theme['background_color']} !important;
+        color: {theme['text_color']} !important;
+    }}
+    
+    /* Sidebar */
+    .css-1d391kg {{
+        background-color: {theme['background_color']} !important;
+        color: {theme['text_color']} !important;
+    }}
+    
+    /* Headers and text */
+    h1, h2, h3, h4, h5, h6 {{
+        color: {theme['text_color']} !important;
+    }}
+    
+    /* Buttons */
     .stButton > button {{
         background-color: {theme['accent_color']} !important;
         color: white !important;
+        border: none !important;
+        border-radius: 8px !important;
+        padding: 8px 16px !important;
+        font-weight: 600 !important;
     }}
-    .stSelectbox > div > div {{
-        background-color: {theme['background_color']} !important;
+    
+    .stButton > button:hover {{
+        background-color: {theme['accent_color']}dd !important;
+        transform: translateY(-1px) !important;
+        transition: all 0.2s ease !important;
+    }}
+    
+    /* Input fields */
+    .stTextInput > div > div > input,
+    .stNumberInput > div > div > input,
+    .stTextArea > div > div > textarea,
+    .stSelectbox > div > div > div {{
+        background-color: #2a2a2a !important;
         color: {theme['text_color']} !important;
+        border: 1px solid #444 !important;
+        border-radius: 6px !important;
+    }}
+    
+    .stTextInput > div > div > input:focus,
+    .stNumberInput > div > div > input:focus,
+    .stTextArea > div > div > textarea:focus,
+    .stSelectbox > div > div > div:focus {{
+        border-color: {theme['accent_color']} !important;
+        box-shadow: 0 0 0 2px {theme['accent_color']}33 !important;
+    }}
+    
+    /* Selectbox dropdown */
+    .stSelectbox > div > div {{
+        background-color: #2a2a2a !important;
+        color: {theme['text_color']} !important;
+    }}
+    
+    /* Date input */
+    .stDateInput > div > div > input {{
+        background-color: #2a2a2a !important;
+        color: {theme['text_color']} !important;
+        border: 1px solid #444 !important;
+        border-radius: 6px !important;
+    }}
+    
+    /* Slider */
+    .stSlider > div > div > div > div {{
+        background-color: #444 !important;
+    }}
+    
+    .stSlider > div > div > div > div > div {{
+        background-color: {theme['accent_color']} !important;
+    }}
+    
+    /* Checkboxes */
+    .stCheckbox > div > div > div {{
+        background-color: #2a2a2a !important;
+        border: 1px solid #444 !important;
+        border-radius: 4px !important;
+    }}
+    
+    /* Expanders */
+    .streamlit-expanderHeader {{
+        background-color: #2a2a2a !important;
+        color: {theme['text_color']} !important;
+        border: 1px solid #444 !important;
+        border-radius: 6px !important;
+    }}
+    
+    /* Metrics */
+    .css-1wivap2 {{
+        background-color: #2a2a2a !important;
+        color: {theme['text_color']} !important;
+        border: 1px solid #444 !important;
+        border-radius: 8px !important;
+    }}
+    
+    /* Form containers */
+    .stForm {{
+        background-color: #2a2a2a !important;
+        border: 1px solid #444 !important;
+        border-radius: 8px !important;
+        padding: 20px !important;
+    }}
+    
+    /* Links */
+    a {{
+        color: {theme['accent_color']} !important;
+    }}
+    
+    a:hover {{
+        color: {theme['accent_color']}dd !important;
+        text-decoration: underline !important;
     }}
     </style>
     """, unsafe_allow_html=True)
@@ -515,6 +623,28 @@ def main():
             
             with col1:
                 st.subheader("🎨 Colors")
+                
+                # Quick theme presets
+                col1a, col1b = st.columns(2)
+                with col1a:
+                    if st.button("🌙 Dark Mode", type="secondary"):
+                        st.session_state.theme_settings['background_color'] = '#1a1a1a'
+                        st.session_state.theme_settings['text_color'] = '#ffffff'
+                        st.session_state.theme_settings['accent_color'] = '#00d4aa'
+                        apply_theme()
+                        st.success("✅ Dark mode applied!")
+                
+                with col1b:
+                    if st.button("☀️ Light Mode", type="secondary"):
+                        st.session_state.theme_settings['background_color'] = '#ffffff'
+                        st.session_state.theme_settings['text_color'] = '#000000'
+                        st.session_state.theme_settings['accent_color'] = '#1f77b4'
+                        apply_theme()
+                        st.success("✅ Light mode applied!")
+                
+                st.markdown("---")
+                
+                # Custom color pickers
                 st.session_state.theme_settings['background_color'] = st.color_picker(
                     "Background Color", 
                     st.session_state.theme_settings['background_color']
