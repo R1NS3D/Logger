@@ -278,7 +278,7 @@ FIELD_CONFIGS = {
         'label': 'Volume Timeframe',
         'type': 'selectbox',
         'help': 'Select the timeframe for trading volume',
-        'options': ['5m', '1h', '24h'],
+        'options': ['5m', '1h', '4h', '24h'],
         'index': 0
     },
     'established_status': {
