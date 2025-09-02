@@ -14,6 +14,16 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
+def get_default_field_order():
+    """Get the default field order"""
+    return {
+        'built_in': ['coin_symbol', 'coin_link', 'date_logged', 'market_cap', 'trading_volume', 
+                     'trading_volume_timeframe', 'established_status', 'fib_levels', 'conviction_level', 
+                     'risk_factors', 'sentiment_community', 'entry_strategy', 'target_exit_strategy', 
+                     'notes_updates', 'trade_result'],
+        'custom': []
+    }
+
 # Initialize session state for client-side storage
 if 'log_entries' not in st.session_state:
     st.session_state.log_entries = []
@@ -29,16 +39,6 @@ if 'theme_settings' not in st.session_state:
         'text_color': '#000000',
         'accent_color': '#1f77b4',
         'custom_background': None
-    }
-
-def get_default_field_order():
-    """Get the default field order"""
-    return {
-        'built_in': ['coin_symbol', 'coin_link', 'date_logged', 'market_cap', 'trading_volume', 
-                     'trading_volume_timeframe', 'established_status', 'fib_levels', 'conviction_level', 
-                     'risk_factors', 'sentiment_community', 'entry_strategy', 'target_exit_strategy', 
-                     'notes_updates', 'trade_result'],
-        'custom': []
     }
 
 def load_client_data():
