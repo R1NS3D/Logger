@@ -119,6 +119,16 @@ def save_client_data():
     except Exception as e:
         st.error(f"❌ Error saving data: {str(e)}")
 
+def clear_form_inputs():
+    """Clear all form input fields from session state"""
+    keys_to_remove = []
+    for key in st.session_state.keys():
+        if key.startswith('input_'):
+            keys_to_remove.append(key)
+    
+    for key in keys_to_remove:
+        del st.session_state[key]
+
 def clear_all_data():
     """Clear all saved data"""
     st.session_state.log_entries = []
@@ -131,6 +141,9 @@ def clear_all_data():
         'accent_color': '#00d4aa',
         'custom_background': None
     }
+    
+    # Also clear form inputs
+    clear_form_inputs()
 
 def move_field_up(field_key, field_type):
     """Move a field up in the order"""
@@ -353,6 +366,23 @@ FIELD_TYPES = {
     'date_input': 'Date Input',
     'checkbox': 'Checkbox'
 }
+
+# Initialize session state for client-side storage
+if 'log_entries' not in st.session_state:
+    st.session_state.log_entries = []
+if 'custom_fields' not in st.session_state:
+    st.session_state.custom_fields = {}
+if 'field_order' not in st.session_state:
+    st.session_state.field_order = get_default_field_order()
+if 'field_toggles' not in st.session_state:
+    st.session_state.field_toggles = {}
+if 'theme_settings' not in st.session_state:
+    st.session_state.theme_settings = {
+        'background_color': '#1a1a1a',
+        'text_color': '#ffffff',
+        'accent_color': '#00d4aa',
+        'custom_background': None
+    }
 
 # Load data on app startup
 if 'data_loaded' not in st.session_state:
@@ -779,6 +809,11 @@ def main():
         save_client_data()
         st.sidebar.success("✅ Data saved!")
     
+    # Clear form button
+    if st.sidebar.button("🗑️ Clear Form", type="secondary"):
+        clear_form_inputs()
+        st.sidebar.success("✅ Form cleared!")
+    
     # Field reordering section
     with st.sidebar.expander("🔄 Reorder Fields", expanded=False):
         st.markdown("**Built-in Fields:**")
@@ -934,25 +969,34 @@ def main():
                         config = st.session_state.custom_fields[field_key]
                         entry_data[field_key] = create_input_widget(field_key, config)
             
-            # Submit button
-            if st.form_submit_button("📝 Add Entry"):
-                # Validate required fields
-                if not entry_data.get('coin_symbol'):
-                    st.error("❌ Coin symbol is required!")
-                else:
-                    # Add timestamp
-                    entry_data['timestamp'] = datetime.now()
-                    
-                    # Add to log entries
-                    st.session_state.log_entries.append(entry_data)
-                    
-                    # Save data
-                    save_client_data()
-                    
-                    # Success message
-                    st.success(f"✅ Added {entry_data.get('coin_symbol', 'Unknown')} to your journal!")
-                    
-                    # Clear form by rerunning
+            # Form buttons
+            col1, col2 = st.columns([1, 1])
+            with col1:
+                if st.form_submit_button("📝 Add Entry"):
+                    # Validate required fields
+                    if not entry_data.get('coin_symbol'):
+                        st.error("❌ Coin symbol is required!")
+                    else:
+                        # Add timestamp
+                        entry_data['timestamp'] = datetime.now()
+                        
+                        # Add to log entries
+                        st.session_state.log_entries.append(entry_data)
+                        
+                        # Save data
+                        save_client_data()
+                        
+                        # Success message
+                        st.success(f"✅ Added {entry_data.get('coin_symbol', 'Unknown')} to your journal!")
+                        
+                        # Clear all form inputs
+                        clear_form_inputs()
+                        
+                        # Rerun to refresh the form
+                        st.rerun()
+            with col2:
+                if st.form_submit_button("🗑️ Clear Form", type="secondary"):
+                    clear_form_inputs()
                     st.rerun()
     
     with col2:
