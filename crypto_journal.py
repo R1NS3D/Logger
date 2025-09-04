@@ -14,488 +14,6 @@ FIELD_ORDER_FILE = os.path.join(DATA_DIR, 'field_order.json')
 FIELD_TOGGLES_FILE = os.path.join(DATA_DIR, 'field_toggles.json')
 THEME_FILE = os.path.join(DATA_DIR, 'theme_settings.json')
 
-# Page configuration
-st.set_page_config(
-    page_title="Lumberjack",
-    page_icon="🪵",
-    layout="wide",
-    initial_sidebar_state="expanded"
-)
-
-def get_default_field_order():
-    """Get the default field order"""
-    return {
-        'built_in': ['coin_symbol', 'coin_link', 'date_logged', 'market_cap', 'trading_volume', 
-                     'trading_volume_timeframe', 'established_status', 'fib_levels', 'conviction_level', 
-                     'sentiment_community', 'notes_updates', 'trade_result'],
-        'custom': []
-    }
-
-# Initialize session state for client-side storage
-if 'log_entries' not in st.session_state:
-    st.session_state.log_entries = []
-if 'custom_fields' not in st.session_state:
-    st.session_state.custom_fields = {}
-if 'field_order' not in st.session_state:
-    st.session_state.field_order = get_default_field_order()
-if 'field_toggles' not in st.session_state:
-    st.session_state.field_toggles = {}
-if 'theme_settings' not in st.session_state:
-    st.session_state.theme_settings = {
-        'background_color': '#1a1a1a',
-        'text_color': '#ffffff',
-        'accent_color': '#00d4aa',
-        'custom_background': None
-    }
-
-def _ensure_data_dir():
-    if not os.path.isdir(DATA_DIR):
-        os.makedirs(DATA_DIR, exist_ok=True)
-
-def _read_json(path, default):
-    try:
-        if os.path.isfile(path):
-            with open(path, 'r', encoding='utf-8') as f:
-                return json.load(f)
-    except Exception:
-        pass
-    return default
-
-def _write_json(path, data):
-    try:
-        with open(path, 'w', encoding='utf-8') as f:
-            json.dump(data, f, ensure_ascii=False, indent=2, default=str)
-    except Exception as e:
-        st.error(f"❌ Failed to write {os.path.basename(path)}: {e}")
-
-def load_client_data():
-    """Load data from local JSON files into session_state and normalize configs."""
-    _ensure_data_dir()
-
-    # Load persisted data
-    st.session_state.log_entries = _read_json(LOGS_FILE, [])
-    st.session_state.custom_fields = _read_json(CUSTOM_FIELDS_FILE, {})
-    st.session_state.field_order = _read_json(FIELD_ORDER_FILE, get_default_field_order())
-    st.session_state.field_toggles = _read_json(FIELD_TOGGLES_FILE, {})
-    st.session_state.theme_settings = _read_json(THEME_FILE, {
-        'background_color': '#1a1a1a',
-        'text_color': '#ffffff',
-        'accent_color': '#00d4aa',
-        'custom_background': None
-    })
-
-    # Defaults for missing toggles
-    for field_key in FIELD_CONFIGS.keys():
-        st.session_state.field_toggles.setdefault(field_key, True)
-    for field_key in st.session_state.custom_fields.keys():
-        st.session_state.field_toggles.setdefault(field_key, True)
-
-    # Normalize custom field configs
-    for field_key, config in st.session_state.custom_fields.items():
-        if 'type' not in config:
-            config['type'] = 'text_input'
-        if config['type'] == 'slider':
-            config.setdefault('min_value', 0)
-            config.setdefault('max_value', 100)
-            config.setdefault('value', 50)
-        elif config['type'] == 'selectbox':
-            config.setdefault('options', ['Option 1', 'Option 2', 'Option 3'])
-            config.setdefault('index', 0)
-
-def save_client_data():
-    """Persist data to local JSON files and update sidebar save time."""
-    try:
-        _ensure_data_dir()
-        _write_json(LOGS_FILE, st.session_state.log_entries)
-        _write_json(CUSTOM_FIELDS_FILE, st.session_state.custom_fields)
-        _write_json(FIELD_ORDER_FILE, st.session_state.field_order)
-        _write_json(FIELD_TOGGLES_FILE, st.session_state.field_toggles)
-        _write_json(THEME_FILE, st.session_state.theme_settings)
-
-        st.session_state['last_save_time'] = datetime.now().strftime("%H:%M:%S")
-    except Exception as e:
-        st.error(f"❌ Error saving data: {str(e)}")
-
-def clear_form_inputs():
-    """Clear all form input fields from session state"""
-    keys_to_remove = []
-    for key in st.session_state.keys():
-        if key.startswith('input_'):
-            keys_to_remove.append(key)
-    
-    for key in keys_to_remove:
-        del st.session_state[key]
-
-def clear_all_data():
-    """Clear all saved data"""
-    st.session_state.log_entries = []
-    st.session_state.custom_fields = {}
-    st.session_state.field_order = get_default_field_order()
-    st.session_state.field_toggles = {}
-    st.session_state.theme_settings = {
-        'background_color': '#1a1a1a',
-        'text_color': '#ffffff',
-        'accent_color': '#00d4aa',
-        'custom_background': None
-    }
-    
-    # Also clear form inputs
-    clear_form_inputs()
-
-# Load data on app startup
-if 'data_loaded' not in st.session_state:
-    load_client_data()
-    st.session_state.data_loaded = True
-
-def create_input_widget(field_key, config):
-    """Create the appropriate input widget based on field configuration"""
-    if config['type'] == 'text_input':
-        return st.text_input(
-            config['label'],
-            help=config['help'],
-            placeholder=config.get('placeholder', ''),
-            key=f"input_{field_key}"
-        )
-    
-    elif config['type'] == 'date_input':
-        return st.date_input(
-            config['label'],
-            value=config.get('default', datetime.now().date()),
-            help=config['help'],
-            key=f"input_{field_key}"
-        )
-    
-    elif config['type'] == 'number_input':
-        return st.number_input(
-            config['label'],
-            value=config.get('value'),
-            help=config['help'],
-            placeholder=config.get('placeholder', ''),
-            key=f"input_{field_key}"
-        )
-    
-    elif config['type'] == 'selectbox':
-        return st.selectbox(
-            config['label'],
-            options=config['options'],
-            index=config.get('index', 0),
-            help=config['help'],
-            key=f"input_{field_key}"
-        )
-    
-    elif config['type'] == 'slider':
-        return st.slider(
-            config['label'],
-            min_value=config['min_value'],
-            max_value=config['max_value'],
-            value=config['value'],
-            help=config['help'],
-            key=f"input_{field_key}"
-        )
-    
-    elif config['type'] == 'text_area':
-        return st.text_area(
-            config['label'],
-            help=config['help'],
-            placeholder=config.get('placeholder', ''),
-            height=100,
-            key=f"input_{field_key}"
-        )
-    
-    elif config['type'] == 'checkbox':
-        return st.checkbox(
-            config['label'],
-            help=config['help'],
-            key=f"input_{field_key}"
-        )
-
-def add_custom_field():
-    """Add a new custom field to the session state"""
-    if st.session_state.new_field_name and st.session_state.new_field_type:
-        field_key = f"custom_{st.session_state.new_field_name.lower().replace(' ', '_')}"
-        
-        # Create basic config based on field type
-        config = {
-            'label': st.session_state.new_field_name,
-            'type': st.session_state.new_field_type,
-            'help': st.session_state.new_field_help or f"Custom field: {st.session_state.new_field_name}"
-        }
-        
-        # Add type-specific configurations
-        if st.session_state.new_field_type == 'number_input':
-            config['placeholder'] = '0'
-            config['value'] = 0
-        elif st.session_state.new_field_type == 'selectbox':
-            config['options'] = ['Option 1', 'Option 2', 'Option 3']
-            config['index'] = 0
-        elif st.session_state.new_field_type == 'slider':
-            config['min_value'] = 0
-            config['max_value'] = 100
-            config['value'] = 50
-        elif st.session_state.new_field_type == 'text_input':
-            config['placeholder'] = f'Enter {st.session_state.new_field_name.lower()}'
-        elif st.session_state.new_field_type == 'text_area':
-            config['placeholder'] = f'Enter {st.session_state.new_field_name.lower()}...'
-        elif st.session_state.new_field_type == 'date_input':
-            config['default'] = datetime.now().date()
-        elif st.session_state.new_field_type == 'checkbox':
-            config['value'] = False
-        
-        # Add the custom field to session state
-        st.session_state.custom_fields[field_key] = config
-        
-        # Add to field order
-        add_field_to_order(field_key, 'custom')
-        
-        # Initialize field toggle for the new custom field
-        st.session_state.field_toggles[field_key] = True
-        
-        # Save the data
-        save_client_data()
-        
-        # Clear the form
-        st.session_state.new_field_name = ""
-        st.session_state.new_field_help = ""
-        st.session_state.new_field_type = list(FIELD_TYPES.keys())[0]  # Reset to first option
-
-def delete_custom_field(field_key):
-    """Delete a custom field from the session state"""
-    if field_key in st.session_state.custom_fields:
-        del st.session_state.custom_fields[field_key]
-        remove_field_from_order(field_key, 'custom')
-        save_client_data()
-
-def apply_theme():
-    """Apply the current theme settings"""
-    theme = st.session_state.theme_settings
-    
-    # Apply custom background if set
-    if theme.get('custom_background'):
-        st.markdown(f"""
-        <style>
-        .stApp {{
-            background-image: url(data:image/png;base64,{theme['custom_background']});
-            background-size: cover;
-            background-attachment: fixed;
-        }}
-        </style>
-        """, unsafe_allow_html=True)
-    
-    # Apply color theme with enhanced dark mode styling
-    st.markdown(f"""
-    <style>
-    .stApp {{
-        background-color: {theme['background_color']} !important;
-        color: {theme['text_color']} !important;
-    }}
-    
-    /* Main content area */
-    .main .block-container {{
-        background-color: {theme['background_color']} !important;
-        color: {theme['text_color']} !important;
-    }}
-    
-    /* Sidebar */
-    .css-1d391kg {{
-        background-color: {theme['background_color']} !important;
-        color: {theme['text_color']} !important;
-    }}
-    
-    /* Headers and text */
-    h1, h2, h3, h4, h5, h6 {{
-        color: {theme['text_color']} !important;
-    }}
-    
-    /* Buttons */
-    .stButton > button {{
-        background-color: {theme['accent_color']} !important;
-        color: white !important;
-        border: none !important;
-        border-radius: 8px !important;
-        padding: 8px 16px !important;
-        font-weight: 600 !important;
-    }}
-    
-    .stButton > button:hover {{
-        background-color: {theme['accent_color']}dd !important;
-        transform: translateY(-1px) !important;
-        transition: all 0.2s ease !important;
-    }}
-    
-    /* Input fields */
-    .stTextInput > div > div > input,
-    .stNumberInput > div > div > input,
-    .stTextArea > div > div > textarea,
-    .stSelectbox > div > div > div {{
-        background-color: #2a2a2a !important;
-        color: {theme['text_color']} !important;
-        border: 1px solid #444 !important;
-        border-radius: 6px !important;
-    }}
-    
-    .stTextInput > div > div > input:focus,
-    .stNumberInput > div > div > input:focus,
-    .stTextArea > div > div > textarea:focus,
-    .stSelectbox > div > div > div:focus {{
-        border-color: {theme['accent_color']} !important;
-        box-shadow: 0 0 0 2px {theme['accent_color']}33 !important;
-    }}
-    
-    /* Selectbox dropdown */
-    .stSelectbox > div > div {{
-        background-color: #2a2a2a !important;
-        color: {theme['text_color']} !important;
-    }}
-    
-    /* Date input */
-    .stDateInput > div > div > input {{
-        background-color: #2a2a2a !important;
-        color: {theme['text_color']} !important;
-        border: 1px solid #444 !important;
-        border-radius: 6px !important;
-    }}
-    
-    /* Slider */
-    .stSlider > div > div > div > div {{
-        background-color: #444 !important;
-    }}
-    
-    .stSlider > div > div > div > div > div {{
-        background-color: {theme['accent_color']} !important;
-    }}
-    
-    /* Checkboxes */
-    .stCheckbox > div > div > div {{
-        background-color: #2a2a2a !important;
-        border: 1px solid #444 !important;
-        border-radius: 4px !important;
-    }}
-    
-    /* Expanders */
-    .streamlit-expanderHeader {{
-        background-color: #2a2a2a !important;
-        color: {theme['text_color']} !important;
-        border: 1px solid #444 !important;
-        border-radius: 6px !important;
-    }}
-    
-    /* Metrics */
-    .css-1wivap2 {{
-        background-color: #2a2a2a !important;
-        color: {theme['text_color']} !important;
-        border: 1px solid #444 !important;
-        border-radius: 8px !important;
-    }}
-    
-    /* Form containers */
-    .stForm {{
-        background-color: #2a2a2a !important;
-        border: 1px solid #444 !important;
-        border-radius: 8px !important;
-        padding: 20px !important;
-    }}
-    
-    /* Links */
-    a {{
-        color: {theme['accent_color']} !important;
-    }}
-    
-    a:hover {{
-        color: {theme['accent_color']}dd !important;
-        text-decoration: underline !important;
-    }}
-    </style>
-    """, unsafe_allow_html=True)
-
-def move_field_up(field_key, field_type):
-    """Move a field up in the order"""
-    order_list = st.session_state.field_order[field_type]
-    if field_key in order_list:
-        current_index = order_list.index(field_key)
-        if current_index > 0:
-            order_list[current_index], order_list[current_index - 1] = order_list[current_index - 1], order_list[current_index]
-            save_client_data()
-            st.success(f"✅ Moved {field_key} up")
-
-def move_field_down(field_key, field_type):
-    """Move a field down in the order"""
-    order_list = st.session_state.field_order[field_type]
-    if field_key in order_list:
-        current_index = order_list.index(field_key)
-        if current_index < len(order_list) - 1:
-            order_list[current_index], order_list[current_index + 1] = order_list[current_index + 1], order_list[current_index]
-            save_client_data()
-            st.success(f"✅ Moved {field_key} down")
-
-def add_field_to_order(field_key, field_type):
-    """Add a new field to the order"""
-    if field_type == 'custom' and field_key not in st.session_state.field_order['custom']:
-        st.session_state.field_order['custom'].append(field_key)
-        save_client_data()
-
-def remove_field_from_order(field_key, field_type):
-    """Remove a field from the order"""
-    if field_key in st.session_state.field_order[field_type]:
-        st.session_state.field_order[field_type].remove(field_key)
-        save_client_data()
-
-def format_number(value):
-    """Format large numbers with abbreviations (K, M, B)"""
-    if value is None or value == 0:
-        return "0"
-    
-    try:
-        value = float(value)
-        if value >= 1_000_000_000:
-            return f"{value/1_000_000_000:.1f}B"
-        elif value >= 1_000_000:
-            return f"{value/1_000_000:.1f}M"
-        elif value >= 1_000:
-            return f"{value/1_000:.1f}K"
-        else:
-            return f"{value:.0f}"
-    except (ValueError, TypeError):
-        return str(value)
-
-def get_link_type(link):
-    """Determine the type of link and return appropriate display text"""
-    if not link or not isinstance(link, str):
-        return None, None
-    
-    link_lower = link.lower()
-    if 'padre' in link_lower:
-        return 'Padre', 'padre'
-    elif 'axiom' in link_lower:
-        return 'Axiom', 'axiom'
-    elif 'dexscreener' in link_lower:
-        return 'DexScreener', 'dexscreener'
-    elif 'coingecko' in link_lower:
-        return 'CoinGecko', 'coingecko'
-    elif 'coinmarketcap' in link_lower:
-        return 'CoinMarketCap', 'coinmarketcap'
-    else:
-        return 'Link', 'generic'
-
-def create_clickable_link(link, text):
-    """Create a clickable link with appropriate styling"""
-    link_type, type_class = get_link_type(link)
-    if not link_type:
-        return text
-    
-    # Create styled link based on type
-    if type_class == 'padre':
-        return f'<a href="{link}" target="_blank" style="color: #FF6B35; text-decoration: none; font-weight: bold;">{text} 🔗</a>'
-    elif type_class == 'axiom':
-        return f'<a href="{link}" target="_blank" style="color: #6366F1; text-decoration: none; font-weight: bold;">{text} 🔗</a>'
-    elif type_class == 'dexscreener':
-        return f'<a href="{link}" target="_blank" style="color: #10B981; text-decoration: none; font-weight: bold;">{text} 📊</a>'
-    elif type_class == 'coingecko':
-        return f'<a href="{link}" target="_blank" style="color: #F59E0B; text-decoration: none; font-weight: bold;">{text} 🦎</a>'
-    elif type_class == 'coinmarketcap':
-        return f'<a href="{link}" target="_blank" style="color: #EF4444; text-decoration: none; font-weight: bold;">{text} 📈</a>'
-    else:
-        return f'<a href="{link}" target="_blank" style="color: #6B7280; text-decoration: none;">{text} 🔗</a>'
-
 # Define all available fields with their configurations
 FIELD_CONFIGS = {
     'coin_symbol': {
@@ -533,21 +51,8 @@ FIELD_CONFIGS = {
     'trading_volume_timeframe': {
         'label': 'Volume Timeframe',
         'type': 'selectbox',
-        'help': 'Select the timeframe for trading volume',
-        'options': ['5m', '1h', '4h', '24h'],
-        'index': 0
-    },
-    'established_status': {
-        'label': 'Established Status',
-        'type': 'selectbox',
-        'help': 'How established is this cryptocurrency in the market',
-        'options': ['New', 'Emerging', 'Established']
-    },
-    'fib_levels': {
-        'label': 'Fib Levels',
-        'type': 'text_input',
-        'help': 'Fibonacci retracement levels (e.g., 0.618 retracement)',
-        'placeholder': '0.618 retracement'
+        'help': 'Timeframe for the trading volume',
+        'options': ['24h', '4h', '1h', '7d', '30d']
     },
     'conviction_level': {
         'label': 'Conviction Level',
@@ -555,98 +60,519 @@ FIELD_CONFIGS = {
         'help': 'Your conviction level for this investment (1-10)',
         'min_value': 1,
         'max_value': 10,
-        'value': 5
+        'value': 5,
+        'step': 1
     },
-    'sentiment_community': {
-        'label': 'Sentiment/Community',
-        'type': 'text_input',
-        'help': 'Community sentiment and social media buzz',
-        'placeholder': 'Bullish on Twitter, active Discord community'
-    },
-    'notes_updates': {
-        'label': 'Notes/Updates',
+    'notes': {
+        'label': 'Notes',
         'type': 'text_area',
-        'help': 'Additional notes and updates',
-        'placeholder': 'Any additional thoughts or observations...'
+        'help': 'Additional notes or observations',
+        'placeholder': 'Enter your thoughts, analysis, or any other relevant information...'
     },
     'trade_result': {
         'label': 'Trade Result',
         'type': 'selectbox',
-        'help': 'Was this a winning or losing trade?',
+        'help': 'Result of the trade (if completed)',
         'options': ['Pending', 'Win', 'Loss']
     }
 }
 
-# Available field types for custom fields
+# Field types for custom fields
 FIELD_TYPES = {
     'text_input': 'Text Input',
     'number_input': 'Number Input',
-    'text_area': 'Text Area',
-    'selectbox': 'Dropdown (Select Box)',
+    'selectbox': 'Dropdown',
     'slider': 'Slider',
-    'date_input': 'Date Input',
-    'checkbox': 'Checkbox'
+    'text_area': 'Text Area'
 }
 
-# Main app content
-st.title("🪵 Logging Journal")
+# Page configuration
+st.set_page_config(
+    page_title="Lumberjack",
+    page_icon="🪵",
+    layout="wide",
+    initial_sidebar_state="expanded"
+)
 
-# Form for adding new entries
-st.markdown("---")
-with st.form("add_entry_form", clear_on_submit=False):
-    st.markdown("### 📝 Add New Entry")
+def get_default_field_order():
+    """Get the default field order"""
+    return {
+        'built_in': ['coin_symbol', 'coin_link', 'date_logged', 'market_cap', 'trading_volume', 'trading_volume_timeframe', 'conviction_level', 'notes', 'trade_result'],
+        'custom': []
+    }
+
+# Initialize session state
+if 'log_entries' not in st.session_state:
+    st.session_state.log_entries = []
+
+if 'custom_fields' not in st.session_state:
+    st.session_state.custom_fields = {}
+
+if 'field_order' not in st.session_state:
+    st.session_state.field_order = get_default_field_order()
+
+if 'field_toggles' not in st.session_state:
+    st.session_state.field_toggles = {}
+
+if 'theme_settings' not in st.session_state:
+    st.session_state.theme_settings = {
+        'background_color': '#0e1117',
+        'text_color': '#ffffff',
+        'background_image': None
+    }
+
+def _ensure_data_dir():
+    """Ensure the data directory exists"""
+    if not os.path.exists(DATA_DIR):
+        os.makedirs(DATA_DIR)
+
+def _read_json(file_path):
+    """Read JSON data from file"""
+    try:
+        if os.path.exists(file_path):
+            with open(file_path, 'r') as f:
+                return json.load(f)
+    except Exception as e:
+        st.error(f"Error reading {file_path}: {e}")
+    return None
+
+def _write_json(file_path, data):
+    """Write JSON data to file"""
+    try:
+        _ensure_data_dir()
+        with open(file_path, 'w') as f:
+            json.dump(data, f, indent=2, default=str)
+    except Exception as e:
+        st.error(f"Error writing {file_path}: {e}")
+
+def load_client_data():
+    """Load data from local files"""
+    # Load log entries
+    logs = _read_json(LOGS_FILE)
+    if logs:
+        st.session_state.log_entries = logs
     
-    # Create two columns for the form
-    col1, col2 = st.columns(2)
+    # Load custom fields
+    custom_fields = _read_json(CUSTOM_FIELDS_FILE)
+    if custom_fields:
+        st.session_state.custom_fields = custom_fields
     
-    with col1:
-        # Built-in fields
-        for field_key in st.session_state.field_order['built_in']:
-            if st.session_state.field_toggles.get(field_key, True):
+    # Load field order
+    field_order = _read_json(FIELD_ORDER_FILE)
+    if field_order:
+        st.session_state.field_order = field_order
+    
+    # Load field toggles
+    field_toggles = _read_json(FIELD_TOGGLES_FILE)
+    if field_toggles:
+        st.session_state.field_toggles = field_toggles
+    
+    # Load theme settings
+    theme_settings = _read_json(THEME_FILE)
+    if theme_settings:
+        st.session_state.theme_settings = theme_settings
+
+def save_client_data():
+    """Save data to local files"""
+    _write_json(LOGS_FILE, st.session_state.log_entries)
+    _write_json(CUSTOM_FIELDS_FILE, st.session_state.custom_fields)
+    _write_json(FIELD_ORDER_FILE, st.session_state.field_order)
+    _write_json(FIELD_TOGGLES_FILE, st.session_state.field_toggles)
+    _write_json(THEME_FILE, st.session_state.theme_settings)
+
+def clear_form_inputs():
+    """Clear all form input values from session state"""
+    keys_to_remove = [key for key in st.session_state.keys() if key.startswith('input_')]
+    for key in keys_to_remove:
+        del st.session_state[key]
+
+def clear_all_data():
+    """Clear all data and files"""
+    st.session_state.log_entries = []
+    st.session_state.custom_fields = {}
+    st.session_state.field_order = get_default_field_order()
+    st.session_state.field_toggles = {}
+    st.session_state.theme_settings = {
+        'background_color': '#0e1117',
+        'text_color': '#ffffff',
+        'background_image': None
+    }
+    
+    # Delete files
+    for file_path in [LOGS_FILE, CUSTOM_FIELDS_FILE, FIELD_ORDER_FILE, FIELD_TOGGLES_FILE, THEME_FILE]:
+        if os.path.exists(file_path):
+            os.remove(file_path)
+
+def format_number(value):
+    """Format large numbers with appropriate suffixes"""
+    if value is None or value == '':
+        return 'N/A'
+    
+    try:
+        value = float(value)
+        if value >= 1e9:
+            return f"${value/1e9:.1f}B"
+        elif value >= 1e6:
+            return f"${value/1e6:.1f}M"
+        elif value >= 1e3:
+            return f"${value/1e3:.1f}K"
+        else:
+            return f"${value:.0f}"
+    except:
+        return str(value)
+
+def get_link_type(url):
+    """Determine the type of link for styling"""
+    if not url or url == '':
+        return 'none'
+    
+    url_lower = url.lower()
+    if 'padre' in url_lower:
+        return 'padre'
+    elif 'axiom' in url_lower:
+        return 'axiom'
+    elif 'dexscreener' in url_lower:
+        return 'dexscreener'
+    elif 'coingecko' in url_lower:
+        return 'coingecko'
+    elif 'coinmarketcap' in url_lower:
+        return 'coinmarketcap'
+    else:
+        return 'other'
+
+def create_clickable_link(url, text="🔗 Open"):
+    """Create a clickable link with appropriate styling"""
+    if not url or url == '':
+        return text
+    
+    link_type = get_link_type(url)
+    if link_type == 'padre':
+        return f'<a href="{url}" target="_blank" style="color: #ff6b6b; text-decoration: none;">🔗 Padre</a>'
+    elif link_type == 'axiom':
+        return f'<a href="{url}" target="_blank" style="color: #4ecdc4; text-decoration: none;">🔗 Axiom</a>'
+    elif link_type == 'dexscreener':
+        return f'<a href="{url}" target="_blank" style="color: #45b7d1; text-decoration: none;">🔗 DexScreener</a>'
+    elif link_type == 'coingecko':
+        return f'<a href="{url}" target="_blank" style="color: #96ceb4; text-decoration: none;">🔗 CoinGecko</a>'
+    elif link_type == 'coinmarketcap':
+        return f'<a href="{url}" target="_blank" style="color: #feca57; text-decoration: none;">🔗 CoinMarketCap</a>'
+    else:
+        return f'<a href="{url}" target="_blank" style="color: #a55eea; text-decoration: none;">🔗 Link</a>'
+
+def apply_theme():
+    """Apply custom theme styling"""
+    theme = st.session_state.theme_settings
+    
+    # Base styles
+    styles = f"""
+    <style>
+    .stApp {{
+        background-color: {theme.get('background_color', '#0e1117')};
+        color: {theme.get('text_color', '#ffffff')};
+    }}
+    
+    .main .block-container {{
+        background-color: {theme.get('background_color', '#0e1117')};
+        color: {theme.get('text_color', '#ffffff')};
+    }}
+    
+    .stSelectbox > div > div {{
+        background-color: {theme.get('background_color', '#0e1117')};
+        color: {theme.get('text_color', '#ffffff')};
+    }}
+    
+    .stTextInput > div > div > input {{
+        background-color: {theme.get('background_color', '#0e1117')};
+        color: {theme.get('text_color', '#ffffff')};
+        border: 1px solid #555;
+    }}
+    
+    .stTextArea > div > div > textarea {{
+        background-color: {theme.get('background_color', '#0e1117')};
+        color: {theme.get('text_color', '#ffffff')};
+        border: 1px solid #555;
+    }}
+    
+    .stNumberInput > div > div > input {{
+        background-color: {theme.get('background_color', '#0e1117')};
+        color: {theme.get('text_color', '#ffffff')};
+        border: 1px solid #555;
+    }}
+    
+    .stSlider > div > div > div {{
+        background-color: {theme.get('background_color', '#0e1117')};
+    }}
+    
+    .stButton > button {{
+        background-color: #1f77b4;
+        color: white;
+        border: none;
+        border-radius: 5px;
+        padding: 0.5rem 1rem;
+    }}
+    
+    .stButton > button:hover {{
+        background-color: #0f5a8a;
+    }}
+    
+    .stMetric {{
+        background-color: rgba(255, 255, 255, 0.1);
+        padding: 1rem;
+        border-radius: 10px;
+        border: 1px solid rgba(255, 255, 255, 0.2);
+    }}
+    
+    .stExpander {{
+        background-color: rgba(255, 255, 255, 0.05);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        border-radius: 10px;
+    }}
+    
+    .stDataFrame {{
+        background-color: rgba(255, 255, 255, 0.05);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        border-radius: 10px;
+    }}
+    """
+    
+    # Add background image if set
+    if theme.get('background_image'):
+        styles += f"""
+        .stApp {{
+            background-image: url('{theme['background_image']}');
+            background-size: cover;
+            background-position: center;
+            background-repeat: no-repeat;
+            background-attachment: fixed;
+        }}
+        
+        .main .block-container {{
+            background-color: rgba(14, 17, 23, 0.9);
+            backdrop-filter: blur(10px);
+        }}
+        """
+    
+    st.markdown(styles, unsafe_allow_html=True)
+
+def create_input_widget(field_key, config):
+    """Create an input widget based on field configuration"""
+    widget_type = config.get('type', 'text_input')
+    label = config.get('label', field_key)
+    help_text = config.get('help', '')
+    placeholder = config.get('placeholder', '')
+    
+    # Get current value from session state
+    session_key = f"input_{field_key}"
+    current_value = st.session_state.get(session_key, config.get('value', config.get('default')))
+    
+    if widget_type == 'text_input':
+        return st.text_input(
+            label,
+            value=current_value,
+            help=help_text,
+            placeholder=placeholder,
+            key=session_key
+        )
+    elif widget_type == 'number_input':
+        return st.number_input(
+            label,
+            value=current_value,
+            help=help_text,
+            placeholder=placeholder,
+            key=session_key
+        )
+    elif widget_type == 'selectbox':
+        options = config.get('options', [])
+        return st.selectbox(
+            label,
+            options=options,
+            index=options.index(current_value) if current_value in options else 0,
+            help=help_text,
+            key=session_key
+        )
+    elif widget_type == 'slider':
+        return st.slider(
+            label,
+            min_value=config.get('min_value', 0),
+            max_value=config.get('max_value', 100),
+            value=current_value if current_value is not None else config.get('value', 50),
+            step=config.get('step', 1),
+            help=help_text,
+            key=session_key
+        )
+    elif widget_type == 'text_area':
+        return st.text_area(
+            label,
+            value=current_value,
+            help=help_text,
+            placeholder=placeholder,
+            key=session_key
+        )
+    elif widget_type == 'date_input':
+        return st.date_input(
+            label,
+            value=current_value if current_value else config.get('default'),
+            help=help_text,
+            key=session_key
+        )
+    else:
+        return st.text_input(
+            label,
+            value=current_value,
+            help=help_text,
+            placeholder=placeholder,
+            key=session_key
+        )
+
+def add_custom_field(field_name, field_type, options=""):
+    """Add a new custom field"""
+    try:
+        # Parse options for selectbox and slider
+        parsed_options = None
+        if field_type == 'selectbox' and options:
+            parsed_options = [opt.strip() for opt in options.split(',')]
+        elif field_type == 'slider' and options:
+            try:
+                min_val, max_val, step = [float(x.strip()) for x in options.split(',')]
+                parsed_options = {'min_value': min_val, 'max_value': max_val, 'step': step}
+            except:
+                parsed_options = {'min_value': 0, 'max_value': 100, 'step': 1}
+        
+        # Create field configuration
+        field_config = {
+            'label': field_name,
+            'type': field_type,
+            'help': f'Custom field: {field_name}'
+        }
+        
+        if parsed_options:
+            if field_type == 'selectbox':
+                field_config['options'] = parsed_options
+            elif field_type == 'slider':
+                field_config.update(parsed_options)
+        
+        # Add to custom fields
+        st.session_state.custom_fields[field_name] = field_config
+        
+        # Add to field order
+        if field_name not in st.session_state.field_order['custom']:
+            st.session_state.field_order['custom'].append(field_name)
+        
+        # Initialize field toggle
+        st.session_state.field_toggles[field_name] = True
+        
+        # Save data
+        save_client_data()
+        
+    except Exception as e:
+        st.error(f"Error adding custom field: {e}")
+
+def delete_custom_field(field_name):
+    """Delete a custom field"""
+    try:
+        # Remove from custom fields
+        if field_name in st.session_state.custom_fields:
+            del st.session_state.custom_fields[field_name]
+        
+        # Remove from field order
+        if field_name in st.session_state.field_order['custom']:
+            st.session_state.field_order['custom'].remove(field_name)
+        
+        # Remove field toggle
+        if field_name in st.session_state.field_toggles:
+            del st.session_state.field_toggles[field_name]
+        
+        # Save data
+        save_client_data()
+        
+    except Exception as e:
+        st.error(f"Error deleting custom field: {e}")
+
+# Load data on startup
+load_client_data()
+
+# Apply theme
+apply_theme()
+
+# Main title
+st.title("🪵 Logging Journal")
+st.markdown("""
+Track and analyze potential investments with this comprehensive logging tool. 
+Toggle fields on/off to customize your logging experience and focus on what matters most to you.
+**Your data is now saved client-side and will persist between sessions!**
+""")
+
+# Field selection in sidebar
+with st.sidebar:
+    st.header("🔧 Field Management")
+    
+    # Built-in fields
+    st.subheader("📋 Built-in Fields")
+    for field_key in st.session_state.field_order['built_in']:
+        if field_key in FIELD_CONFIGS:
+            config = FIELD_CONFIGS[field_key]
+            st.session_state.field_toggles[field_key] = st.checkbox(
+                config['label'],
+                value=st.session_state.field_toggles.get(field_key, True),
+                key=f"toggle_{field_key}"
+            )
+    
+    # Custom fields
+    if st.session_state.custom_fields:
+        st.subheader("🔧 Custom Fields")
+        for field_name in st.session_state.field_order['custom']:
+            if field_name in st.session_state.custom_fields:
+                config = st.session_state.custom_fields[field_name]
+                st.session_state.field_toggles[field_name] = st.checkbox(
+                    config['label'],
+                    value=st.session_state.field_toggles.get(field_name, True),
+                    key=f"toggle_{field_name}"
+                )
+
+# Get selected fields
+selected_fields = {k: v for k, v in st.session_state.field_toggles.items() if v}
+
+# Main form
+with st.form("entry_form"):
+    entry_data = {}
+    
+    # Add built-in fields in custom order (only if selected)
+    for field_key in st.session_state.field_order['built_in']:
+        if field_key in selected_fields and selected_fields[field_key]:
+            if field_key in FIELD_CONFIGS:
                 config = FIELD_CONFIGS[field_key]
-                value = create_input_widget(field_key, config)
-                
-                # Store the value in session state
-                if value is not None:
-                    st.session_state[f"input_{field_key}"] = value
+                entry_data[field_key] = create_input_widget(field_key, config)
     
-    with col2:
-        # Custom fields
-        for field_key in st.session_state.field_order['custom']:
-            if st.session_state.field_toggles.get(field_key, True):
+    # Add custom fields in custom order (only if selected)
+    for field_key in st.session_state.field_order['custom']:
+        if field_key in selected_fields and selected_fields[field_key]:
+            if field_key in st.session_state.custom_fields:
                 config = st.session_state.custom_fields[field_key]
-                value = create_input_widget(field_key, config)
-                
-                # Store the value in session state
-                if value is not None:
-                    st.session_state[f"input_{field_key}"] = value
+                entry_data[field_key] = create_input_widget(field_key, config)
     
-    # Form submission
-    col1, col2, col3 = st.columns([1, 1, 1])
+    # Form buttons
+    col1, col2, col3 = st.columns(3)
+    
     with col1:
-        if st.form_submit_button("➕ Add Entry", use_container_width=True):
-            # Collect all input values
-            entry_data = {}
-            for field_key in st.session_state.field_order['built_in'] + st.session_state.field_order['custom']:
-                if st.session_state.field_toggles.get(field_key, True):
-                    input_key = f"input_{field_key}"
-                    if input_key in st.session_state:
-                        entry_data[field_key] = st.session_state[input_key]
-            
-            # Add timestamp
-            entry_data['timestamp'] = datetime.now().isoformat()
-            
-            # Add to log entries
-            st.session_state.log_entries.append(entry_data)
-            
-            # Save data
-            save_client_data()
-            
-            # Clear form inputs
-            clear_form_inputs()
-            
-            st.success("✅ Entry added successfully!")
-            st.rerun()
+        if st.form_submit_button("📝 Add Entry", type="primary", use_container_width=True):
+            # Validate required fields
+            if not entry_data.get('coin_symbol'):
+                st.error("❌ Coin symbol is required!")
+            else:
+                # Add timestamp
+                entry_data['timestamp'] = datetime.now()
+                
+                # Add to log entries
+                st.session_state.log_entries.append(entry_data)
+                
+                # Save data
+                save_client_data()
+                
+                # Success message
+                st.success(f"✅ Added {entry_data.get('coin_symbol', 'Unknown')} to your journal!")
+                
+                # Clear form by rerunning
+                st.rerun()
     
     with col2:
         if st.form_submit_button("🗑️ Clear Form", use_container_width=True):
@@ -659,3 +585,160 @@ with st.form("add_entry_form", clear_on_submit=False):
             st.success("✅ Settings saved!")
 
 # Stats section
+if st.session_state.log_entries:
+    st.subheader("📊 Quick Stats")
+    
+    # Calculate stats
+    total_entries = len(st.session_state.log_entries)
+    winning_trades = sum(1 for entry in st.session_state.log_entries if entry.get('trade_result') == 'Win')
+    losing_trades = sum(1 for entry in st.session_state.log_entries if entry.get('trade_result') == 'Loss')
+    win_rate = (winning_trades / (winning_trades + losing_trades) * 100) if (winning_trades + losing_trades) > 0 else 0
+    
+    col1, col2, col3, col4 = st.columns(4)
+    with col1:
+        st.metric("Total Entries", total_entries)
+    with col2:
+        st.metric("Winning Trades", winning_trades)
+    with col3:
+        st.metric("Losing Trades", losing_trades)
+    with col4:
+        st.metric("Win Rate", f"{win_rate:.1f}%")
+
+# Recent entries section
+if st.session_state.log_entries:
+    st.subheader("📋 Recent Entries")
+    
+    # Show last 5 entries
+    recent_entries = st.session_state.log_entries[-5:][::-1]  # Show newest first
+    
+    for entry in recent_entries:
+        with st.expander(f"🪙 {entry.get('coin_symbol', 'Unknown')} - {entry.get('date_logged', 'No date')}"):
+            # Show abbreviated market cap
+            market_cap = entry.get('market_cap', 0)
+            if market_cap:
+                if market_cap >= 1e9:
+                    mc_display = f"${market_cap/1e9:.1f}B"
+                elif market_cap >= 1e6:
+                    mc_display = f"${market_cap/1e6:.1f}M"
+                elif market_cap >= 1e3:
+                    mc_display = f"${market_cap/1e3:.1f}K"
+                else:
+                    mc_display = f"${market_cap:.0f}"
+            else:
+                mc_display = "N/A"
+            
+            st.write(f"**Market Cap:** {mc_display}")
+            st.write(f"**Date:** {entry.get('date_logged', 'No date')}")
+            
+            # Show other key fields
+            for field_key, field_config in FIELD_CONFIGS.items():
+                if field_key not in ['coin_symbol', 'date_logged', 'market_cap'] and field_key in entry:
+                    value = entry[field_key]
+                    if value is not None and value != '':
+                        st.write(f"**{field_config['label']}:** {value}")
+
+# Interactive data table
+if st.session_state.log_entries:
+    st.subheader("📊 Interactive Data Table")
+    
+    # Create DataFrame
+    df = pd.DataFrame(st.session_state.log_entries)
+    
+    if not df.empty:
+        # Add trade result column for editing
+        if 'trade_result' not in df.columns:
+            df['trade_result'] = 'Pending'
+        
+        # Create editable columns
+        edited_df = st.data_editor(
+            df,
+            column_config={
+                "trade_result": st.column_config.SelectboxColumn(
+                    "Result",
+                    help="Select the trade result",
+                    options=["Pending", "Win", "Loss"],
+                    required=True,
+                ),
+                "coin_link": st.column_config.LinkColumn(
+                    "Link",
+                    help="Click to open link",
+                    display_text="🔗 Open"
+                )
+            },
+            use_container_width=True,
+            num_rows="dynamic",
+            key="data_editor"
+        )
+        
+        # Update session state with edited data
+        if not edited_df.equals(df):
+            st.session_state.log_entries = edited_df.to_dict('records')
+            save_client_data()
+            st.rerun()
+
+# Sidebar settings
+with st.sidebar:
+    st.header("⚙️ Settings")
+    
+    # Theme settings
+    st.subheader("🎨 Theme")
+    
+    # Background upload
+    uploaded_bg = st.file_uploader("Upload Background", type=['png', 'jpg', 'jpeg'])
+    if uploaded_bg:
+        # Convert to base64
+        bg_bytes = uploaded_bg.read()
+        bg_b64 = base64.b64encode(bg_bytes).decode()
+        st.session_state.theme_settings['background_image'] = f"data:image/{uploaded_bg.type.split('/')[-1]};base64,{bg_b64}"
+        save_client_data()
+        st.success("Background updated!")
+    
+    # Color picker
+    bg_color = st.color_picker("Background Color", value=st.session_state.theme_settings.get('background_color', '#0e1117'))
+    if bg_color != st.session_state.theme_settings.get('background_color'):
+        st.session_state.theme_settings['background_color'] = bg_color
+        save_client_data()
+    
+    text_color = st.color_picker("Text Color", value=st.session_state.theme_settings.get('text_color', '#ffffff'))
+    if text_color != st.session_state.theme_settings.get('text_color'):
+        st.session_state.theme_settings['text_color'] = text_color
+        save_client_data()
+    
+    # Custom fields management
+    st.subheader("🔧 Custom Fields")
+    
+    # Add new custom field
+    with st.form("add_custom_field"):
+        new_field_name = st.text_input("Field Name", placeholder="e.g., Risk Level")
+        new_field_type = st.selectbox("Field Type", ["text_input", "number_input", "selectbox", "slider"])
+        new_field_options = ""
+        if new_field_type == "selectbox":
+            new_field_options = st.text_input("Options (comma-separated)", placeholder="High, Medium, Low")
+        elif new_field_type == "slider":
+            new_field_options = st.text_input("Min, Max, Step (comma-separated)", placeholder="0, 100, 1")
+        
+        if st.form_submit_button("Add Field"):
+            if new_field_name and new_field_name not in FIELD_CONFIGS:
+                add_custom_field(new_field_name, new_field_type, new_field_options)
+                st.success(f"Added field: {new_field_name}")
+                st.rerun()
+            elif new_field_name in FIELD_CONFIGS:
+                st.error("Field already exists!")
+    
+    # Field management
+    if st.session_state.custom_fields:
+        st.write("**Manage Fields:**")
+        for field_name in list(st.session_state.custom_fields.keys()):
+            col1, col2 = st.columns([3, 1])
+            with col1:
+                st.write(f"• {field_name}")
+            with col2:
+                if st.button("🗑️", key=f"del_{field_name}"):
+                    delete_custom_field(field_name)
+                    st.rerun()
+    
+    # Clear all data
+    st.subheader("🗑️ Data Management")
+    if st.button("Clear All Data", type="secondary"):
+        clear_all_data()
+        st.rerun()
