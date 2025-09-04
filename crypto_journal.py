@@ -530,79 +530,58 @@ with col2:
         
         st.markdown("---")  # Divider
         
-        # Recent entries with proper scroll box
+        # Recent entries - NO BOX, just scrollable
         st.markdown("### 📋 Recent Entries")
         
-        # Show all entries in a proper scrollable container
+        # Show all entries in a simple scrollable area
         recent_entries = st.session_state.log_entries[::-1]  # Show newest first
         
-        # Create a scrollable container using st.container with height limit
-        with st.container():
-            # Add custom CSS for scrollable area
-            st.markdown("""
-            <style>
-            .scrollable-entries {
-                max-height: 300px;
-                overflow-y: auto;
-                border: 1px solid rgba(255, 255, 255, 0.1);
-                border-radius: 10px;
-                padding: 10px;
-                background-color: rgba(255, 255, 255, 0.02);
-            }
-            .entry-row:hover {
-                background-color: rgba(255, 255, 255, 0.1);
-                border-radius: 5px;
-            }
-            </style>
-            """, unsafe_allow_html=True)
-            
-            st.markdown('<div class="scrollable-entries">', unsafe_allow_html=True)
-            
-            for i, entry in enumerate(recent_entries):
-                # Show abbreviated market cap
-                market_cap = entry.get('market_cap', 0)
-                if market_cap:
-                    if market_cap >= 1e9:
-                        mc_display = f"${market_cap/1e9:.1f}B"
-                    elif market_cap >= 1e6:
-                        mc_display = f"${market_cap/1e6:.1f}M"
-                    elif market_cap >= 1e3:
-                        mc_display = f"${market_cap/1e3:.1f}K"
-                    else:
-                        mc_display = f"${market_cap:.0f}"
+        # Simple scrollable container without extra styling
+        st.markdown("""
+        <div style="max-height: 300px; overflow-y: auto; padding: 5px;">
+        """, unsafe_allow_html=True)
+        
+        for i, entry in enumerate(recent_entries):
+            # Show abbreviated market cap
+            market_cap = entry.get('market_cap', 0)
+            if market_cap:
+                if market_cap >= 1e9:
+                    mc_display = f"${market_cap/1e9:.1f}B"
+                elif market_cap >= 1e6:
+                    mc_display = f"${market_cap/1e6:.1f}M"
+                elif market_cap >= 1e3:
+                    mc_display = f"${market_cap/1e3:.1f}K"
                 else:
-                    mc_display = "N/A"
-                
-                # Format date without year
-                date_str = str(entry.get('date_logged', 'No date'))
-                if date_str != 'No date' and len(date_str) > 4:
-                    # Remove year (last 4 characters if it's a date)
-                    short_date = date_str[:-5] if date_str.endswith('-2024') or date_str.endswith('-2025') else date_str
-                else:
-                    short_date = date_str
-                
-                # Create columns for entry and trash button
-                entry_col, trash_col = st.columns([4, 1])
-                
-                with entry_col:
-                    st.markdown(f"""
-                    <div class="entry-row" style="padding: 5px; margin: 2px 0;">
-                        🪙 <strong>{entry.get('coin_symbol', 'Unknown')}</strong> - {mc_display} • {short_date}
-                    </div>
-                    """, unsafe_allow_html=True)
-                
-                with trash_col:
-                    # Simple trash button without outline
-                    if st.button("🗑️", key=f"delete_entry_{i}", help="Delete this entry"):
-                        # Find the entry in the full list and remove it
-                        entry_timestamp = entry.get('timestamp')
-                        if entry_timestamp:
-                            st.session_state.log_entries = [e for e in st.session_state.log_entries if e.get('timestamp') != entry_timestamp]
-                            save_client_data()
-                            st.success(f"Deleted entry for {entry.get('coin_symbol', 'Unknown')}")
-                            st.rerun()
+                    mc_display = f"${market_cap:.0f}"
+            else:
+                mc_display = "N/A"
             
-            st.markdown('</div>', unsafe_allow_html=True)
+            # Format date without year
+            date_str = str(entry.get('date_logged', 'No date'))
+            if date_str != 'No date' and len(date_str) > 4:
+                # Remove year (last 4 characters if it's a date)
+                short_date = date_str[:-5] if date_str.endswith('-2024') or date_str.endswith('-2025') else date_str
+            else:
+                short_date = date_str
+            
+            # Create columns for entry and trash button
+            entry_col, trash_col = st.columns([4, 1])
+            
+            with entry_col:
+                st.markdown(f"🪙 **{entry.get('coin_symbol', 'Unknown')}** - {mc_display} • {short_date}")
+            
+            with trash_col:
+                # Simple trash button without outline
+                if st.button("🗑️", key=f"delete_entry_{i}", help="Delete this entry"):
+                    # Find the entry in the full list and remove it
+                    entry_timestamp = entry.get('timestamp')
+                    if entry_timestamp:
+                        st.session_state.log_entries = [e for e in st.session_state.log_entries if e.get('timestamp') != entry_timestamp]
+                        save_client_data()
+                        st.success(f"Deleted entry for {entry.get('coin_symbol', 'Unknown')}")
+                        st.rerun()
+        
+        st.markdown("</div>", unsafe_allow_html=True)
     else:
         st.markdown("### 📊 Quick Stats")
         st.info("No entries yet")
