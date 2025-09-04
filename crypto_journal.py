@@ -344,21 +344,19 @@ def apply_theme():
         styles += f"""
         .stApp {{
             background-image: url('{theme['background_image']}');
-            background-size: cover;
+            background-size: contain;
             background-position: center;
             background-repeat: no-repeat;
             background-attachment: fixed;
-            background-clip: border-box;
         }}
         
         .main .block-container {{
-            background-color: rgba(14, 17, 23, 0.85);
-            backdrop-filter: blur(5px);
+            background-color: rgba(14, 17, 23, 0.7);
         }}
         
         .stApp > div {{
             background-image: url('{theme['background_image']}');
-            background-size: cover;
+            background-size: contain;
             background-position: center;
             background-repeat: no-repeat;
             background-attachment: fixed;
