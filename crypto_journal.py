@@ -52,7 +52,7 @@ FIELD_CONFIGS = {
         'label': 'Volume Timeframe',
         'type': 'selectbox',
         'help': 'Timeframe for the trading volume',
-        'options': ['24h', '4h', '1h', '7d', '30d']
+        'options': ['5m', '1h', '4h', '24h']
     },
     'conviction_level': {
         'label': 'Conviction Level',
@@ -715,6 +715,43 @@ with st.sidebar:
         st.success("✅ Theme applied!")
         st.rerun()
     
+    # Dropdown customization
+    st.subheader("📋 Dropdown Options")
+    
+    # Volume Timeframe options
+    st.write("**Volume Timeframe Options:**")
+    timeframe_options = st.text_input(
+        "Volume Timeframe (comma-separated)", 
+        value=", ".join(FIELD_CONFIGS['trading_volume_timeframe']['options']),
+        help="Enter options separated by commas (e.g., 5m, 1h, 4h, 24h)"
+    )
+    
+    # Trade Result options
+    st.write("**Trade Result Options:**")
+    trade_result_options = st.text_input(
+        "Trade Result (comma-separated)", 
+        value=", ".join(FIELD_CONFIGS['trade_result']['options']),
+        help="Enter options separated by commas (e.g., Pending, Win, Loss)"
+    )
+    
+    # Apply dropdown changes
+    if st.button("📋 Update Dropdowns", use_container_width=True):
+        # Update volume timeframe options
+        if timeframe_options:
+            new_timeframe_options = [opt.strip() for opt in timeframe_options.split(',')]
+            FIELD_CONFIGS['trading_volume_timeframe']['options'] = new_timeframe_options
+        
+        # Update trade result options
+        if trade_result_options:
+            new_trade_result_options = [opt.strip() for opt in trade_result_options.split(',')]
+            FIELD_CONFIGS['trade_result']['options'] = new_trade_result_options
+        
+        save_client_data()
+        st.success("✅ Dropdown options updated!")
+        st.rerun()
+    
+    st.markdown("---")
+    
     # Custom fields management
     st.subheader("🔧 Custom Fields")
     
@@ -783,26 +820,26 @@ if st.session_state.log_entries:
         # Rename columns
         df = df.rename(columns=column_mapping)
         
-        # Create editable columns
-        edited_df = st.data_editor(
-            df,
-            column_config={
-                "Result": st.column_config.SelectboxColumn(
-                    "Result",
-                    help="Select the trade result",
-                    options=["Pending", "Win", "Loss"],
-                    required=True,
-                ),
-                "Link": st.column_config.LinkColumn(
-                    "Link",
-                    help="Click to open link",
-                    display_text="🔗 Open"
-                )
-            },
-            use_container_width=True,
-            num_rows="dynamic",
-            key="data_editor"
-        )
+                    # Create editable columns
+            edited_df = st.data_editor(
+                df,
+                column_config={
+                    "Result": st.column_config.SelectboxColumn(
+                        "Result",
+                        help="Select the trade result",
+                        options=FIELD_CONFIGS['trade_result']['options'],
+                        required=True,
+                    ),
+                    "Link": st.column_config.LinkColumn(
+                        "Link",
+                        help="Click to open link",
+                        display_text="🔗 Open"
+                    )
+                },
+                use_container_width=True,
+                num_rows="dynamic",
+                key="data_editor"
+            )
         
         # Update session state with edited data
         if not edited_df.equals(df):
