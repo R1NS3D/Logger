@@ -488,11 +488,11 @@ def delete_custom_field(field_name):
     except Exception as e:
         st.error(f"Error deleting custom field: {e}")
 
-# Load data on startup
-load_client_data()
-
 # Apply theme
 apply_theme()
+
+# Load data on startup
+load_client_data()
 
 # Main title
 st.title("🪵 Logging Journal")
