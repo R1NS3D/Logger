@@ -819,9 +819,9 @@ if st.session_state.log_entries:
         
         # Rename columns
         df = df.rename(columns=column_mapping)
-        
-                    # Create editable columns
-            edited_df = st.data_editor(
+
+        # Create editable columns
+        edited_df = st.data_editor(
                 df,
                 column_config={
                     "Result": st.column_config.SelectboxColumn(
