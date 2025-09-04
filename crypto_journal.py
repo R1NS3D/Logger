@@ -509,10 +509,10 @@ with col1:
     st.markdown("<br>", unsafe_allow_html=True)
 
 with col2:
-    # Add spacing to align with form content
+    # Add spacing to align Total Entries with Coin Symbol field
     st.markdown("<br><br><br><br>", unsafe_allow_html=True)
     
-    # Quick Stats (no box, same position)
+    # Quick Stats (same position as before)
     if st.session_state.log_entries:
         st.markdown("### 📊 Quick Stats")
         
@@ -530,30 +530,35 @@ with col2:
         
         st.markdown("---")  # Divider
         
-        # Recent entries in scrollable box
+        # Recent entries with proper scroll box
         st.markdown("### 📋 Recent Entries")
         
-        # Create scrollable container for recent entries
-        st.markdown("""
-        <div style="
-            max-height: 300px;
-            overflow-y: auto;
-            background-color: rgba(255, 255, 255, 0.05);
-            border: 1px solid rgba(255, 255, 255, 0.1);
-            border-radius: 10px;
-            padding: 15px;
-            margin: 10px 0;
-        ">
-        """, unsafe_allow_html=True)
-        
-        # Show all entries in scrollable box
+        # Show all entries in a proper scrollable container
         recent_entries = st.session_state.log_entries[::-1]  # Show newest first
         
-        for i, entry in enumerate(recent_entries):
-            # Create columns for entry content and trash button
-            entry_col, trash_col = st.columns([4, 1])
+        # Create a scrollable container using st.container with height limit
+        with st.container():
+            # Add custom CSS for scrollable area
+            st.markdown("""
+            <style>
+            .scrollable-entries {
+                max-height: 300px;
+                overflow-y: auto;
+                border: 1px solid rgba(255, 255, 255, 0.1);
+                border-radius: 10px;
+                padding: 10px;
+                background-color: rgba(255, 255, 255, 0.02);
+            }
+            .entry-row:hover {
+                background-color: rgba(255, 255, 255, 0.1);
+                border-radius: 5px;
+            }
+            </style>
+            """, unsafe_allow_html=True)
             
-            with entry_col:
+            st.markdown('<div class="scrollable-entries">', unsafe_allow_html=True)
+            
+            for i, entry in enumerate(recent_entries):
                 # Show abbreviated market cap
                 market_cap = entry.get('market_cap', 0)
                 if market_cap:
@@ -576,32 +581,28 @@ with col2:
                 else:
                     short_date = date_str
                 
-                # Compact entry display on same line with hover effect
-                st.markdown(f"""
-                <div style="
-                    padding: 8px;
-                    margin: 2px 0;
-                    border-radius: 5px;
-                    transition: background-color 0.2s;
-                " onmouseover="this.style.backgroundColor='rgba(255,255,255,0.1)'" onmouseout="this.style.backgroundColor='transparent'">
-                    🪙 <strong>{entry.get('coin_symbol', 'Unknown')}</strong> - {mc_display} • {short_date}
-                </div>
-                """, unsafe_allow_html=True)
+                # Create columns for entry and trash button
+                entry_col, trash_col = st.columns([4, 1])
+                
+                with entry_col:
+                    st.markdown(f"""
+                    <div class="entry-row" style="padding: 5px; margin: 2px 0;">
+                        🪙 <strong>{entry.get('coin_symbol', 'Unknown')}</strong> - {mc_display} • {short_date}
+                    </div>
+                    """, unsafe_allow_html=True)
+                
+                with trash_col:
+                    # Simple trash button without outline
+                    if st.button("🗑️", key=f"delete_entry_{i}", help="Delete this entry"):
+                        # Find the entry in the full list and remove it
+                        entry_timestamp = entry.get('timestamp')
+                        if entry_timestamp:
+                            st.session_state.log_entries = [e for e in st.session_state.log_entries if e.get('timestamp') != entry_timestamp]
+                            save_client_data()
+                            st.success(f"Deleted entry for {entry.get('coin_symbol', 'Unknown')}")
+                            st.rerun()
             
-            with trash_col:
-                # Trash button with no outline and hover effect
-                if st.button("🗑️", key=f"delete_entry_{i}", help="Delete this entry", 
-                           use_container_width=True, 
-                           type="secondary"):
-                    # Find the entry in the full list and remove it
-                    entry_timestamp = entry.get('timestamp')
-                    if entry_timestamp:
-                        st.session_state.log_entries = [e for e in st.session_state.log_entries if e.get('timestamp') != entry_timestamp]
-                        save_client_data()
-                        st.success(f"Deleted entry for {entry.get('coin_symbol', 'Unknown')}")
-                        st.rerun()
-        
-        st.markdown("</div>", unsafe_allow_html=True)
+            st.markdown('</div>', unsafe_allow_html=True)
     else:
         st.markdown("### 📊 Quick Stats")
         st.info("No entries yet")
