@@ -494,13 +494,83 @@ apply_theme()
 # Load data on startup
 load_client_data()
 
-# Main title
-st.title("🪵 Logging Journal")
-st.markdown("""
-Track and analyze potential investments with this comprehensive logging tool. 
-Toggle fields on/off to customize your logging experience and focus on what matters most to you.
-**Your data is now saved client-side and will persist between sessions!**
-""")
+# Main title and stats row
+col1, col2 = st.columns([2, 1])
+
+with col1:
+    st.title("🪵 Logging Journal")
+    st.markdown("""
+    Track and analyze potential investments with this comprehensive logging tool. 
+    Toggle fields on/off to customize your logging experience and focus on what matters most to you.
+    **Your data is now saved client-side and will persist between sessions!**
+    """)
+
+with col2:
+    # Quick Stats in the top right
+    if st.session_state.log_entries:
+        st.subheader("📊 Quick Stats")
+        
+        # Calculate stats
+        total_entries = len(st.session_state.log_entries)
+        winning_trades = sum(1 for entry in st.session_state.log_entries if entry.get('trade_result') == 'Win')
+        losing_trades = sum(1 for entry in st.session_state.log_entries if entry.get('trade_result') == 'Loss')
+        win_rate = (winning_trades / (winning_trades + losing_trades) * 100) if (winning_trades + losing_trades) > 0 else 0
+        
+        st.metric("Total Entries", total_entries)
+        st.metric("Winning Trades", winning_trades)
+        st.metric("Losing Trades", losing_trades)
+        st.metric("Win Rate", f"{win_rate:.1f}%")
+    else:
+        st.subheader("📊 Quick Stats")
+        st.info("No entries yet")
+    
+    # Recent entries in the same column
+    if st.session_state.log_entries:
+        st.subheader("📋 Recent Entries")
+        
+        # Show last 5 entries
+        recent_entries = st.session_state.log_entries[-5:][::-1]  # Show newest first
+        
+        for i, entry in enumerate(recent_entries):
+            # Create columns for entry content and trash button
+            entry_col, trash_col = st.columns([4, 1])
+            
+            with entry_col:
+                with st.expander(f"🪙 {entry.get('coin_symbol', 'Unknown')} - {entry.get('date_logged', 'No date')}"):
+                    # Show abbreviated market cap
+                    market_cap = entry.get('market_cap', 0)
+                    if market_cap:
+                        if market_cap >= 1e9:
+                            mc_display = f"${market_cap/1e9:.1f}B"
+                        elif market_cap >= 1e6:
+                            mc_display = f"${market_cap/1e6:.1f}M"
+                        elif market_cap >= 1e3:
+                            mc_display = f"${market_cap/1e3:.1f}K"
+                        else:
+                            mc_display = f"${market_cap:.0f}"
+                    else:
+                        mc_display = "N/A"
+                    
+                    st.write(f"**Market Cap:** {mc_display}")
+                    st.write(f"**Date:** {entry.get('date_logged', 'No date')}")
+                    
+                    # Show other key fields
+                    for field_key, field_config in FIELD_CONFIGS.items():
+                        if field_key not in ['coin_symbol', 'date_logged', 'market_cap'] and field_key in entry:
+                            value = entry[field_key]
+                            if value is not None and value != '':
+                                st.write(f"**{field_config['label']}:** {value}")
+            
+            with trash_col:
+                # Trash button to delete entry
+                if st.button("🗑️", key=f"delete_entry_{i}", help="Delete this entry"):
+                    # Find the entry in the full list and remove it
+                    entry_timestamp = entry.get('timestamp')
+                    if entry_timestamp:
+                        st.session_state.log_entries = [e for e in st.session_state.log_entries if e.get('timestamp') != entry_timestamp]
+                        save_client_data()
+                        st.success(f"Deleted entry for {entry.get('coin_symbol', 'Unknown')}")
+                        st.rerun()
 
 # Field selection in sidebar
 with st.sidebar:
@@ -584,58 +654,6 @@ with st.form("entry_form"):
             save_client_data()
             st.success("✅ Settings saved!")
 
-# Stats section
-if st.session_state.log_entries:
-    st.subheader("📊 Quick Stats")
-    
-    # Calculate stats
-    total_entries = len(st.session_state.log_entries)
-    winning_trades = sum(1 for entry in st.session_state.log_entries if entry.get('trade_result') == 'Win')
-    losing_trades = sum(1 for entry in st.session_state.log_entries if entry.get('trade_result') == 'Loss')
-    win_rate = (winning_trades / (winning_trades + losing_trades) * 100) if (winning_trades + losing_trades) > 0 else 0
-    
-    col1, col2, col3, col4 = st.columns(4)
-    with col1:
-        st.metric("Total Entries", total_entries)
-    with col2:
-        st.metric("Winning Trades", winning_trades)
-    with col3:
-        st.metric("Losing Trades", losing_trades)
-    with col4:
-        st.metric("Win Rate", f"{win_rate:.1f}%")
-
-# Recent entries section
-if st.session_state.log_entries:
-    st.subheader("📋 Recent Entries")
-    
-    # Show last 5 entries
-    recent_entries = st.session_state.log_entries[-5:][::-1]  # Show newest first
-    
-    for entry in recent_entries:
-        with st.expander(f"🪙 {entry.get('coin_symbol', 'Unknown')} - {entry.get('date_logged', 'No date')}"):
-            # Show abbreviated market cap
-            market_cap = entry.get('market_cap', 0)
-            if market_cap:
-                if market_cap >= 1e9:
-                    mc_display = f"${market_cap/1e9:.1f}B"
-                elif market_cap >= 1e6:
-                    mc_display = f"${market_cap/1e6:.1f}M"
-                elif market_cap >= 1e3:
-                    mc_display = f"${market_cap/1e3:.1f}K"
-                else:
-                    mc_display = f"${market_cap:.0f}"
-            else:
-                mc_display = "N/A"
-            
-            st.write(f"**Market Cap:** {mc_display}")
-            st.write(f"**Date:** {entry.get('date_logged', 'No date')}")
-            
-            # Show other key fields
-            for field_key, field_config in FIELD_CONFIGS.items():
-                if field_key not in ['coin_symbol', 'date_logged', 'market_cap'] and field_key in entry:
-                    value = entry[field_key]
-                    if value is not None and value != '':
-                        st.write(f"**{field_config['label']}:** {value}")
 
 # Interactive data table
 if st.session_state.log_entries:
