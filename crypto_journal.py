@@ -509,8 +509,8 @@ with col1:
     st.markdown("<br>", unsafe_allow_html=True)
 
 with col2:
-    # Add spacing to align Total Entries with Coin Symbol field
-    st.markdown("<br><br><br><br>", unsafe_allow_html=True)
+    # Add more spacing to align Quick Stats header with Coin Symbol field
+    st.markdown("<br><br><br><br><br><br>", unsafe_allow_html=True)
     
     # Quick Stats (same position as before)
     if st.session_state.log_entries:
