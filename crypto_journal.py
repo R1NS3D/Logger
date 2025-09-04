@@ -495,7 +495,7 @@ apply_theme()
 load_client_data()
 
 # Main title and stats row
-col1, col2 = st.columns([2, 1])
+col1, col2 = st.columns([3, 2])
 
 with col1:
     st.title("🪵 Logging Journal")
@@ -504,6 +504,9 @@ with col1:
     Toggle fields on/off to customize your logging experience and focus on what matters most to you.
     **Your data is now saved client-side and will persist between sessions!**
     """)
+    
+    # Add some spacing to align with the stats
+    st.markdown("<br>", unsafe_allow_html=True)
 
 with col2:
     # Quick Stats in the top right
@@ -602,97 +605,100 @@ with st.sidebar:
 # Get selected fields
 selected_fields = {k: v for k, v in st.session_state.field_toggles.items() if v}
 
-# Main form
-with st.form("entry_form"):
-    entry_data = {}
+# Main form - in left column
+with col1:
+    st.subheader("📝 Add New Entry")
     
-    # Add built-in fields in custom order (only if selected)
-    for field_key in st.session_state.field_order['built_in']:
-        if field_key in selected_fields and selected_fields[field_key]:
-            if field_key in FIELD_CONFIGS:
-                config = FIELD_CONFIGS[field_key]
-                entry_data[field_key] = create_input_widget(field_key, config)
-    
-    # Add custom fields in custom order (only if selected)
-    for field_key in st.session_state.field_order['custom']:
-        if field_key in selected_fields and selected_fields[field_key]:
-            if field_key in st.session_state.custom_fields:
-                config = st.session_state.custom_fields[field_key]
-                entry_data[field_key] = create_input_widget(field_key, config)
-    
-    # Form buttons
-    col1, col2, col3 = st.columns(3)
-    
-    with col1:
-        if st.form_submit_button("📝 Add Entry", type="primary", use_container_width=True):
-            # Validate required fields
-            if not entry_data.get('coin_symbol'):
-                st.error("❌ Coin symbol is required!")
-            else:
-                # Add timestamp
-                entry_data['timestamp'] = datetime.now()
-                
-                # Add to log entries
-                st.session_state.log_entries.append(entry_data)
-                
-                # Save data
-                save_client_data()
-                
-                # Success message
-                st.success(f"✅ Added {entry_data.get('coin_symbol', 'Unknown')} to your journal!")
-                
-                # Clear form by rerunning
+    with st.form("entry_form"):
+        entry_data = {}
+        
+        # Add built-in fields in custom order (only if selected)
+        for field_key in st.session_state.field_order['built_in']:
+            if field_key in selected_fields and selected_fields[field_key]:
+                if field_key in FIELD_CONFIGS:
+                    config = FIELD_CONFIGS[field_key]
+                    entry_data[field_key] = create_input_widget(field_key, config)
+        
+        # Add custom fields in custom order (only if selected)
+        for field_key in st.session_state.field_order['custom']:
+            if field_key in selected_fields and selected_fields[field_key]:
+                if field_key in st.session_state.custom_fields:
+                    config = st.session_state.custom_fields[field_key]
+                    entry_data[field_key] = create_input_widget(field_key, config)
+        
+        # Form buttons
+        btn_col1, btn_col2, btn_col3 = st.columns(3)
+        
+        with btn_col1:
+            if st.form_submit_button("📝 Add Entry", type="primary", use_container_width=True):
+                # Validate required fields
+                if not entry_data.get('coin_symbol'):
+                    st.error("❌ Coin symbol is required!")
+                else:
+                    # Add timestamp
+                    entry_data['timestamp'] = datetime.now()
+                    
+                    # Add to log entries
+                    st.session_state.log_entries.append(entry_data)
+                    
+                    # Save data
+                    save_client_data()
+                    
+                    # Success message
+                    st.success(f"✅ Added {entry_data.get('coin_symbol', 'Unknown')} to your journal!")
+                    
+                    # Clear form by rerunning
+                    st.rerun()
+        
+        with btn_col2:
+            if st.form_submit_button("🗑️ Clear Form", use_container_width=True):
+                clear_form_inputs()
                 st.rerun()
-    
-    with col2:
-        if st.form_submit_button("🗑️ Clear Form", use_container_width=True):
-            clear_form_inputs()
-            st.rerun()
-    
-    with col3:
-        if st.form_submit_button("💾 Save Settings", use_container_width=True):
-            save_client_data()
-            st.success("✅ Settings saved!")
+        
+        with btn_col3:
+            if st.form_submit_button("💾 Save Settings", use_container_width=True):
+                save_client_data()
+                st.success("✅ Settings saved!")
 
 
-# Interactive data table
-if st.session_state.log_entries:
-    st.subheader("📊 Interactive Data Table")
-    
-    # Create DataFrame
-    df = pd.DataFrame(st.session_state.log_entries)
-    
-    if not df.empty:
-        # Add trade result column for editing
-        if 'trade_result' not in df.columns:
-            df['trade_result'] = 'Pending'
+    # Interactive data table in left column
+    if st.session_state.log_entries:
+        st.subheader("📊 Interactive Data Table")
         
-        # Create editable columns
-        edited_df = st.data_editor(
-            df,
-            column_config={
-                "trade_result": st.column_config.SelectboxColumn(
-                    "Result",
-                    help="Select the trade result",
-                    options=["Pending", "Win", "Loss"],
-                    required=True,
-                ),
-                "coin_link": st.column_config.LinkColumn(
-                    "Link",
-                    help="Click to open link",
-                    display_text="🔗 Open"
-                )
-            },
-            use_container_width=True,
-            num_rows="dynamic",
-            key="data_editor"
-        )
+        # Create DataFrame
+        df = pd.DataFrame(st.session_state.log_entries)
         
-        # Update session state with edited data
-        if not edited_df.equals(df):
-            st.session_state.log_entries = edited_df.to_dict('records')
-            save_client_data()
-            st.rerun()
+        if not df.empty:
+            # Add trade result column for editing
+            if 'trade_result' not in df.columns:
+                df['trade_result'] = 'Pending'
+            
+            # Create editable columns
+            edited_df = st.data_editor(
+                df,
+                column_config={
+                    "trade_result": st.column_config.SelectboxColumn(
+                        "Result",
+                        help="Select the trade result",
+                        options=["Pending", "Win", "Loss"],
+                        required=True,
+                    ),
+                    "coin_link": st.column_config.LinkColumn(
+                        "Link",
+                        help="Click to open link",
+                        display_text="🔗 Open"
+                    )
+                },
+                use_container_width=True,
+                num_rows="dynamic",
+                key="data_editor"
+            )
+            
+            # Update session state with edited data
+            if not edited_df.equals(df):
+                st.session_state.log_entries = edited_df.to_dict('records')
+                save_client_data()
+                st.rerun()
 
 # Sidebar settings
 with st.sidebar:
