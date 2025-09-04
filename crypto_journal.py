@@ -119,7 +119,6 @@ if 'theme_settings' not in st.session_state:
         'background_color': '#0e1117',
         'text_color': '#ffffff',
         'button_color': '#1f77b4',
-        'accent_color': '#4ecdc4',
         'background_image': None
     }
 
@@ -198,7 +197,6 @@ def clear_all_data():
         'background_color': '#0e1117',
         'text_color': '#ffffff',
         'button_color': '#1f77b4',
-        'accent_color': '#4ecdc4',
         'background_image': None
     }
     
@@ -320,14 +318,6 @@ def apply_theme():
         opacity: 0.8;
     }}
     
-    .stButton > button[data-testid="baseButton-primary"] {{
-        background-color: {theme.get('accent_color', '#4ecdc4')};
-    }}
-    
-    .stButton > button[data-testid="baseButton-primary"]:hover {{
-        background-color: {theme.get('accent_color', '#4ecdc4')};
-        opacity: 0.8;
-    }}
     
     .stMetric {{
         background-color: rgba(255, 255, 255, 0.1);
@@ -358,11 +348,20 @@ def apply_theme():
             background-position: center;
             background-repeat: no-repeat;
             background-attachment: fixed;
+            background-clip: border-box;
         }}
         
         .main .block-container {{
-            background-color: rgba(14, 17, 23, 0.9);
-            backdrop-filter: blur(10px);
+            background-color: rgba(14, 17, 23, 0.85);
+            backdrop-filter: blur(5px);
+        }}
+        
+        .stApp > div {{
+            background-image: url('{theme['background_image']}');
+            background-size: cover;
+            background-position: center;
+            background-repeat: no-repeat;
+            background-attachment: fixed;
         }}
         """
     
@@ -705,14 +704,12 @@ with st.sidebar:
     bg_color = st.color_picker("Background Color", value=st.session_state.theme_settings.get('background_color', '#0e1117'))
     text_color = st.color_picker("Text Color", value=st.session_state.theme_settings.get('text_color', '#ffffff'))
     button_color = st.color_picker("Button Color", value=st.session_state.theme_settings.get('button_color', '#1f77b4'))
-    accent_color = st.color_picker("Accent Color", value=st.session_state.theme_settings.get('accent_color', '#4ecdc4'))
     
     # Apply button for instant theme changes
     if st.button("🎨 Apply Theme", type="primary", use_container_width=True):
         st.session_state.theme_settings['background_color'] = bg_color
         st.session_state.theme_settings['text_color'] = text_color
         st.session_state.theme_settings['button_color'] = button_color
-        st.session_state.theme_settings['accent_color'] = accent_color
         save_client_data()
         st.success("✅ Theme applied!")
         st.rerun()
