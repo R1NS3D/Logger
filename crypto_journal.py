@@ -344,22 +344,25 @@ def apply_theme():
         styles += f"""
         .stApp {{
             background-image: url('{theme['background_image']}');
-            background-size: contain;
-            background-position: center;
+            background-size: cover;
+            background-position: center center;
             background-repeat: no-repeat;
             background-attachment: fixed;
+            min-height: 100vh;
         }}
         
         .main .block-container {{
-            background-color: rgba(14, 17, 23, 0.7);
+            background-color: rgba(14, 17, 23, 0.75);
+            backdrop-filter: blur(2px);
         }}
         
         .stApp > div {{
             background-image: url('{theme['background_image']}');
-            background-size: contain;
-            background-position: center;
+            background-size: cover;
+            background-position: center center;
             background-repeat: no-repeat;
             background-attachment: fixed;
+            min-height: 100vh;
         }}
         """
     
