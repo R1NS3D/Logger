@@ -509,7 +509,10 @@ with col1:
     st.markdown("<br>", unsafe_allow_html=True)
 
 with col2:
-    # Quick Stats in the top right
+    # Add spacing to align with form content
+    st.markdown("<br><br>", unsafe_allow_html=True)
+    
+    # Quick Stats aligned with form content
     if st.session_state.log_entries:
         st.subheader("📊 Quick Stats")
         
@@ -526,54 +529,6 @@ with col2:
     else:
         st.subheader("📊 Quick Stats")
         st.info("No entries yet")
-    
-    # Recent entries in the same column
-    if st.session_state.log_entries:
-        st.subheader("📋 Recent Entries")
-        
-        # Show last 5 entries
-        recent_entries = st.session_state.log_entries[-5:][::-1]  # Show newest first
-        
-        for i, entry in enumerate(recent_entries):
-            # Create columns for entry content and trash button
-            entry_col, trash_col = st.columns([4, 1])
-            
-            with entry_col:
-                with st.expander(f"🪙 {entry.get('coin_symbol', 'Unknown')} - {entry.get('date_logged', 'No date')}"):
-                    # Show abbreviated market cap
-                    market_cap = entry.get('market_cap', 0)
-                    if market_cap:
-                        if market_cap >= 1e9:
-                            mc_display = f"${market_cap/1e9:.1f}B"
-                        elif market_cap >= 1e6:
-                            mc_display = f"${market_cap/1e6:.1f}M"
-                        elif market_cap >= 1e3:
-                            mc_display = f"${market_cap/1e3:.1f}K"
-                        else:
-                            mc_display = f"${market_cap:.0f}"
-                    else:
-                        mc_display = "N/A"
-                    
-                    st.write(f"**Market Cap:** {mc_display}")
-                    st.write(f"**Date:** {entry.get('date_logged', 'No date')}")
-                    
-                    # Show other key fields
-                    for field_key, field_config in FIELD_CONFIGS.items():
-                        if field_key not in ['coin_symbol', 'date_logged', 'market_cap'] and field_key in entry:
-                            value = entry[field_key]
-                            if value is not None and value != '':
-                                st.write(f"**{field_config['label']}:** {value}")
-            
-            with trash_col:
-                # Trash button to delete entry
-                if st.button("🗑️", key=f"delete_entry_{i}", help="Delete this entry"):
-                    # Find the entry in the full list and remove it
-                    entry_timestamp = entry.get('timestamp')
-                    if entry_timestamp:
-                        st.session_state.log_entries = [e for e in st.session_state.log_entries if e.get('timestamp') != entry_timestamp]
-                        save_client_data()
-                        st.success(f"Deleted entry for {entry.get('coin_symbol', 'Unknown')}")
-                        st.rerun()
 
 # Field selection in sidebar
 with st.sidebar:
@@ -607,8 +562,6 @@ selected_fields = {k: v for k, v in st.session_state.field_toggles.items() if v}
 
 # Main form - in left column
 with col1:
-    st.subheader("📝 Add New Entry")
-    
     with st.form("entry_form"):
         entry_data = {}
         
@@ -661,44 +614,6 @@ with col1:
                 st.success("✅ Settings saved!")
 
 
-    # Interactive data table in left column
-    if st.session_state.log_entries:
-        st.subheader("📊 Interactive Data Table")
-        
-        # Create DataFrame
-        df = pd.DataFrame(st.session_state.log_entries)
-        
-        if not df.empty:
-            # Add trade result column for editing
-            if 'trade_result' not in df.columns:
-                df['trade_result'] = 'Pending'
-            
-            # Create editable columns
-            edited_df = st.data_editor(
-                df,
-                column_config={
-                    "trade_result": st.column_config.SelectboxColumn(
-                        "Result",
-                        help="Select the trade result",
-                        options=["Pending", "Win", "Loss"],
-                        required=True,
-                    ),
-                    "coin_link": st.column_config.LinkColumn(
-                        "Link",
-                        help="Click to open link",
-                        display_text="🔗 Open"
-                    )
-                },
-                use_container_width=True,
-                num_rows="dynamic",
-                key="data_editor"
-            )
-            
-            # Update session state with edited data
-            if not edited_df.equals(df):
-                st.session_state.log_entries = edited_df.to_dict('records')
-                save_client_data()
-                st.rerun()
 
 # Sidebar settings
 with st.sidebar:
@@ -766,3 +681,62 @@ with st.sidebar:
     if st.button("Clear All Data", type="secondary"):
         clear_all_data()
         st.rerun()
+
+# Full-width Interactive Data Table
+if st.session_state.log_entries:
+    st.subheader("📊 Interactive Data Table")
+    
+    # Create DataFrame
+    df = pd.DataFrame(st.session_state.log_entries)
+    
+    if not df.empty:
+        # Add trade result column for editing
+        if 'trade_result' not in df.columns:
+            df['trade_result'] = 'Pending'
+        
+        # Create column mapping to clean names
+        column_mapping = {
+            'coin_symbol': 'Coin',
+            'coin_link': 'Link',
+            'date_logged': 'Date',
+            'market_cap': 'Market Cap',
+            'trading_volume': 'Volume',
+            'trading_volume_timeframe': 'Timeframe',
+            'conviction_level': 'Conviction',
+            'notes': 'Notes',
+            'trade_result': 'Result',
+            'timestamp': 'Added'
+        }
+        
+        # Rename columns
+        df = df.rename(columns=column_mapping)
+        
+        # Create editable columns
+        edited_df = st.data_editor(
+            df,
+            column_config={
+                "Result": st.column_config.SelectboxColumn(
+                    "Result",
+                    help="Select the trade result",
+                    options=["Pending", "Win", "Loss"],
+                    required=True,
+                ),
+                "Link": st.column_config.LinkColumn(
+                    "Link",
+                    help="Click to open link",
+                    display_text="🔗 Open"
+                )
+            },
+            use_container_width=True,
+            num_rows="dynamic",
+            key="data_editor"
+        )
+        
+        # Update session state with edited data
+        if not edited_df.equals(df):
+            # Convert back to original column names
+            reverse_mapping = {v: k for k, v in column_mapping.items()}
+            edited_df = edited_df.rename(columns=reverse_mapping)
+            st.session_state.log_entries = edited_df.to_dict('records')
+            save_client_data()
+            st.rerun()
