@@ -512,87 +512,99 @@ with col2:
     # Add spacing to align with form content
     st.markdown("<br><br><br><br>", unsafe_allow_html=True)
     
-    # Create a container box for Quick Stats and Recent Entries
-    with st.container():
+    # Quick Stats (no box, same position)
+    if st.session_state.log_entries:
+        st.markdown("### 📊 Quick Stats")
+        
+        # Calculate stats
+        total_entries = len(st.session_state.log_entries)
+        winning_trades = sum(1 for entry in st.session_state.log_entries if entry.get('trade_result') == 'Win')
+        losing_trades = sum(1 for entry in st.session_state.log_entries if entry.get('trade_result') == 'Loss')
+        win_rate = (winning_trades / (winning_trades + losing_trades) * 100) if (winning_trades + losing_trades) > 0 else 0
+        
+        # Clean stats display
+        st.markdown(f"**Total Entries:** {total_entries}")
+        st.markdown(f"**Winning Trades:** {winning_trades}")
+        st.markdown(f"**Losing Trades:** {losing_trades}")
+        st.markdown(f"**Win Rate:** {win_rate:.1f}%")
+        
+        st.markdown("---")  # Divider
+        
+        # Recent entries in scrollable box
+        st.markdown("### 📋 Recent Entries")
+        
+        # Create scrollable container for recent entries
         st.markdown("""
         <div style="
+            max-height: 300px;
+            overflow-y: auto;
             background-color: rgba(255, 255, 255, 0.05);
             border: 1px solid rgba(255, 255, 255, 0.1);
             border-radius: 10px;
-            padding: 20px;
+            padding: 15px;
             margin: 10px 0;
         ">
         """, unsafe_allow_html=True)
         
-        # Quick Stats
-        if st.session_state.log_entries:
-            st.markdown("### 📊 Quick Stats")
+        # Show all entries in scrollable box
+        recent_entries = st.session_state.log_entries[::-1]  # Show newest first
+        
+        for i, entry in enumerate(recent_entries):
+            # Create columns for entry content and trash button
+            entry_col, trash_col = st.columns([4, 1])
             
-            # Calculate stats
-            total_entries = len(st.session_state.log_entries)
-            winning_trades = sum(1 for entry in st.session_state.log_entries if entry.get('trade_result') == 'Win')
-            losing_trades = sum(1 for entry in st.session_state.log_entries if entry.get('trade_result') == 'Loss')
-            win_rate = (winning_trades / (winning_trades + losing_trades) * 100) if (winning_trades + losing_trades) > 0 else 0
-            
-            # Clean stats display
-            st.markdown(f"**Total Entries:** {total_entries}")
-            st.markdown(f"**Winning Trades:** {winning_trades}")
-            st.markdown(f"**Losing Trades:** {losing_trades}")
-            st.markdown(f"**Win Rate:** {win_rate:.1f}%")
-            
-            st.markdown("---")  # Divider
-            
-            # Recent entries
-            st.markdown("### 📋 Recent Entries")
-            
-            # Show last 3 entries
-            recent_entries = st.session_state.log_entries[-3:][::-1]  # Show newest first
-            
-            for i, entry in enumerate(recent_entries):
-                # Create columns for entry content and trash button
-                entry_col, trash_col = st.columns([4, 1])
-                
-                with entry_col:
-                    # Show abbreviated market cap
-                    market_cap = entry.get('market_cap', 0)
-                    if market_cap:
-                        if market_cap >= 1e9:
-                            mc_display = f"${market_cap/1e9:.1f}B"
-                        elif market_cap >= 1e6:
-                            mc_display = f"${market_cap/1e6:.1f}M"
-                        elif market_cap >= 1e3:
-                            mc_display = f"${market_cap/1e3:.1f}K"
-                        else:
-                            mc_display = f"${market_cap:.0f}"
+            with entry_col:
+                # Show abbreviated market cap
+                market_cap = entry.get('market_cap', 0)
+                if market_cap:
+                    if market_cap >= 1e9:
+                        mc_display = f"${market_cap/1e9:.1f}B"
+                    elif market_cap >= 1e6:
+                        mc_display = f"${market_cap/1e6:.1f}M"
+                    elif market_cap >= 1e3:
+                        mc_display = f"${market_cap/1e3:.1f}K"
                     else:
-                        mc_display = "N/A"
-                    
-                    # Format date without year
-                    date_str = str(entry.get('date_logged', 'No date'))
-                    if date_str != 'No date' and len(date_str) > 4:
-                        # Remove year (last 4 characters if it's a date)
-                        short_date = date_str[:-5] if date_str.endswith('-2024') or date_str.endswith('-2025') else date_str
-                    else:
-                        short_date = date_str
-                    
-                    # Compact entry display on same line
-                    st.markdown(f"🪙 **{entry.get('coin_symbol', 'Unknown')}** - {mc_display} • {short_date}")
+                        mc_display = f"${market_cap:.0f}"
+                else:
+                    mc_display = "N/A"
                 
-                with trash_col:
-                    # Trash button to delete entry
-                    if st.button("🗑️", key=f"delete_entry_{i}", help="Delete this entry"):
-                        # Find the entry in the full list and remove it
-                        entry_timestamp = entry.get('timestamp')
-                        if entry_timestamp:
-                            st.session_state.log_entries = [e for e in st.session_state.log_entries if e.get('timestamp') != entry_timestamp]
-                            save_client_data()
-                            st.success(f"Deleted entry for {entry.get('coin_symbol', 'Unknown')}")
-                            st.rerun()
-        else:
-            st.markdown("### 📊 Quick Stats")
-            st.info("No entries yet")
+                # Format date without year
+                date_str = str(entry.get('date_logged', 'No date'))
+                if date_str != 'No date' and len(date_str) > 4:
+                    # Remove year (last 4 characters if it's a date)
+                    short_date = date_str[:-5] if date_str.endswith('-2024') or date_str.endswith('-2025') else date_str
+                else:
+                    short_date = date_str
+                
+                # Compact entry display on same line with hover effect
+                st.markdown(f"""
+                <div style="
+                    padding: 8px;
+                    margin: 2px 0;
+                    border-radius: 5px;
+                    transition: background-color 0.2s;
+                " onmouseover="this.style.backgroundColor='rgba(255,255,255,0.1)'" onmouseout="this.style.backgroundColor='transparent'">
+                    🪙 <strong>{entry.get('coin_symbol', 'Unknown')}</strong> - {mc_display} • {short_date}
+                </div>
+                """, unsafe_allow_html=True)
+            
+            with trash_col:
+                # Trash button with no outline and hover effect
+                if st.button("🗑️", key=f"delete_entry_{i}", help="Delete this entry", 
+                           use_container_width=True, 
+                           type="secondary"):
+                    # Find the entry in the full list and remove it
+                    entry_timestamp = entry.get('timestamp')
+                    if entry_timestamp:
+                        st.session_state.log_entries = [e for e in st.session_state.log_entries if e.get('timestamp') != entry_timestamp]
+                        save_client_data()
+                        st.success(f"Deleted entry for {entry.get('coin_symbol', 'Unknown')}")
+                        st.rerun()
         
         st.markdown("</div>", unsafe_allow_html=True)
+    else:
+        st.markdown("### 📊 Quick Stats")
+        st.info("No entries yet")
 
 # Field selection in sidebar
 with st.sidebar:
