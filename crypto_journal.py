@@ -509,8 +509,8 @@ with col1:
     st.markdown("<br>", unsafe_allow_html=True)
 
 with col2:
-    # Add spacing to align with form content
-    st.markdown("<br><br>", unsafe_allow_html=True)
+    # Add spacing to align Total Entries with Coin Symbol field
+    st.markdown("<br><br><br><br>", unsafe_allow_html=True)
     
     # Quick Stats aligned with form content
     if st.session_state.log_entries:
@@ -522,10 +522,51 @@ with col2:
         losing_trades = sum(1 for entry in st.session_state.log_entries if entry.get('trade_result') == 'Loss')
         win_rate = (winning_trades / (winning_trades + losing_trades) * 100) if (winning_trades + losing_trades) > 0 else 0
         
-        st.metric("Total Entries", total_entries)
-        st.metric("Winning Trades", winning_trades)
-        st.metric("Losing Trades", losing_trades)
-        st.metric("Win Rate", f"{win_rate:.1f}%")
+        # Unboxed stats - smaller and cleaner
+        st.markdown(f"**Total Entries:** {total_entries}")
+        st.markdown(f"**Winning Trades:** {winning_trades}")
+        st.markdown(f"**Losing Trades:** {losing_trades}")
+        st.markdown(f"**Win Rate:** {win_rate:.1f}%")
+        
+        # Recent entries in Quick Stats
+        st.subheader("📋 Recent Entries")
+        
+        # Show last 3 entries (smaller)
+        recent_entries = st.session_state.log_entries[-3:][::-1]  # Show newest first
+        
+        for i, entry in enumerate(recent_entries):
+            # Create columns for entry content and trash button
+            entry_col, trash_col = st.columns([4, 1])
+            
+            with entry_col:
+                # Show abbreviated market cap
+                market_cap = entry.get('market_cap', 0)
+                if market_cap:
+                    if market_cap >= 1e9:
+                        mc_display = f"${market_cap/1e9:.1f}B"
+                    elif market_cap >= 1e6:
+                        mc_display = f"${market_cap/1e6:.1f}M"
+                    elif market_cap >= 1e3:
+                        mc_display = f"${market_cap/1e3:.1f}K"
+                    else:
+                        mc_display = f"${market_cap:.0f}"
+                else:
+                    mc_display = "N/A"
+                
+                # Compact entry display
+                st.markdown(f"🪙 **{entry.get('coin_symbol', 'Unknown')}** - {mc_display}")
+                st.markdown(f"📅 {entry.get('date_logged', 'No date')}")
+            
+            with trash_col:
+                # Trash button to delete entry
+                if st.button("🗑️", key=f"delete_entry_{i}", help="Delete this entry"):
+                    # Find the entry in the full list and remove it
+                    entry_timestamp = entry.get('timestamp')
+                    if entry_timestamp:
+                        st.session_state.log_entries = [e for e in st.session_state.log_entries if e.get('timestamp') != entry_timestamp]
+                        save_client_data()
+                        st.success(f"Deleted entry for {entry.get('coin_symbol', 'Unknown')}")
+                        st.rerun()
     else:
         st.subheader("📊 Quick Stats")
         st.info("No entries yet")
